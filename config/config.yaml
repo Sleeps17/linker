@@ -1,0 +1,8 @@
+env: "local"
+server:
+    port: 44004
+    host: "127.0.0.1"
+data_base:
+  conn_string: "mongodb://mongodb:27017"
+  db_name: "linker"
+  collection_name: "links"
