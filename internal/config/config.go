@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/ilyakaznacheev/cleanenv"
 	"os"
+	"time"
 )
 
 const (
@@ -17,14 +18,14 @@ type Config struct {
 }
 
 type ServerConfig struct {
-	Host string `yaml:"host" env-default:"127.0.0.1"`
-	Port uint   `yaml:"port" env-default:"4404"`
+	Port uint `yaml:"port" env-default:"4404"`
 }
 
 type DataBaseConfig struct {
-	ConnString string `yaml:"conn_string" env-required:"true"`
-	DbName     string `yaml:"db_name" env-default:"linker"`
-	Collection string `yaml:"collection" env-default:"links"`
+	ConnectionTimeout time.Duration `yaml:"connection_timeout" env-default:"5s"`
+	ConnString        string        `yaml:"conn_string" env-required:"true"`
+	DbName            string        `yaml:"db_name" env-default:"linker"`
+	Collection        string        `yaml:"collection" env-default:"links"`
 }
 
 func MustLoad() *Config {

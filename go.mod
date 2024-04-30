@@ -3,7 +3,7 @@ module github.com/Sleeps17/linker
 go 1.22.2
 
 require (
-	github.com/Sleeps17/linker-protos v1.0.0
+	github.com/Sleeps17/linker-protos v2.0.0+incompatible
 	github.com/ilyakaznacheev/cleanenv v1.5.0
 	go.mongodb.org/mongo-driver v1.15.0
 	google.golang.org/grpc v1.63.2
@@ -11,6 +11,7 @@ require (
 
 require (
 	github.com/BurntSushi/toml v1.2.1 // indirect
+	github.com/Sleeps17/linker/pkg/random v0.0.0-20240430103249-ee5935eda97b // indirect
 	github.com/golang/snappy v0.0.1 // indirect
 	github.com/joho/godotenv v1.5.1 // indirect
 	github.com/klauspost/compress v1.13.6 // indirect

@@ -15,21 +15,20 @@ type App struct {
 	port   int
 }
 
-func New(log *slog.Logger, host string, port int, linkerService server.LinkerService) *App {
+func New(log *slog.Logger, port int, linkerService server.Service) *App {
 	grpcServer := grpc.NewServer()
 
-	server.Register(grpcServer, linkerService)
+	server.Register(grpcServer, linkerService, log)
 
 	return &App{
 		log:    log,
 		server: grpcServer,
-		host:   host,
 		port:   port,
 	}
 }
 
 func (app *App) MustRun() {
-	l, err := net.Listen("tcp", net.JoinHostPort(app.host, fmt.Sprint(app.port)))
+	l, err := net.Listen("tcp", fmt.Sprintf(":%d", app.port))
 	if err != nil {
 		panic(fmt.Sprintf("Failed to listen: %v", err))
 	}
@@ -39,6 +38,6 @@ func (app *App) MustRun() {
 	}
 }
 
-func (a *App) Stop() {
-	a.server.GracefulStop()
+func (app *App) Stop() {
+	app.server.GracefulStop()
 }
