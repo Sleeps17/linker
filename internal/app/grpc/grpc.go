@@ -11,7 +11,6 @@ import (
 type App struct {
 	log    *slog.Logger
 	server *grpc.Server
-	host   string
 	port   int
 }
 
