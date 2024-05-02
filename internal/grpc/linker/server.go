@@ -6,16 +6,16 @@ import (
 	linkerV1 "github.com/Sleeps17/linker-protos/gen/go/linker"
 	"github.com/Sleeps17/linker/internal/storage"
 	"github.com/Sleeps17/linker/pkg/random"
+	"github.com/go-playground/validator"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"log/slog"
 )
 
-var (
-	MsgRecordNotFound     = "link with this alias was not found"
-	MsgAliasAlreadyExists = "link with such an alias already exists"
-	MsgInternalError      = "Something went wrong"
+const (
+	minimalUsernameLength = 8
+	emptyAlias            = ""
 )
 
 type Service interface {
@@ -37,18 +37,27 @@ func Register(s *grpc.Server, linkerService Service, log *slog.Logger) {
 
 func (s *serverAPI) Post(ctx context.Context, req *linkerV1.PostRequest) (*linkerV1.PostResponse, error) {
 	username := req.GetUsername()
-	url := req.GetUrl()
+	link := req.GetLink()
 	alias := req.GetAlias()
 
 	s.log.Info("try to handle post request", slog.String("username", username), slog.String("alias", alias))
 
-	// TODO: add validation of url
+	if len(username) < minimalUsernameLength {
+		s.log.Info("request with invalid username")
+		return nil, status.Error(codes.InvalidArgument, MsgInvalidUsername)
+	}
 
-	if alias == "" {
+	if alias == emptyAlias {
+		s.log.Info("request with empty alias, need to generate")
 		alias = random.Alias()
 	}
 
-	if err := s.linkerService.Post(ctx, username, url, alias); err != nil {
+	if err := validator.New().Var(link, "required,url"); err != nil {
+		s.log.Info("request with invalid link", slog.String("link", link))
+		return nil, status.Error(codes.InvalidArgument, MsgInvalidLink)
+	}
+
+	if err := s.linkerService.Post(ctx, username, link, alias); err != nil {
 		if errors.Is(err, storage.ErrAliasAlreadyExists) {
 			s.log.Info("alias already exists", slog.String("alias", alias))
 			return nil, status.Error(codes.InvalidArgument, MsgAliasAlreadyExists)
@@ -68,6 +77,16 @@ func (s *serverAPI) Pick(ctx context.Context, req *linkerV1.PickRequest) (*linke
 
 	s.log.Info("try to handle pick request", slog.String("username", username), slog.String("alias", alias))
 
+	if len(username) < minimalUsernameLength {
+		s.log.Info("request with invalid username")
+		return nil, status.Error(codes.InvalidArgument, MsgInvalidUsername)
+	}
+
+	if alias == emptyAlias {
+		s.log.Info("request with empty alias")
+		return nil, status.Error(codes.InvalidArgument, MsgEmptyAlias)
+	}
+
 	link, err := s.linkerService.Pick(ctx, username, alias)
 	if err != nil {
 		if errors.Is(err, storage.ErrRecordNotFound) {
@@ -80,13 +99,18 @@ func (s *serverAPI) Pick(ctx context.Context, req *linkerV1.PickRequest) (*linke
 	}
 
 	s.log.Info("pick request handled successfully", slog.String("alias", alias))
-	return &linkerV1.PickResponse{Url: link}, nil
+	return &linkerV1.PickResponse{Link: link}, nil
 }
 
 func (s *serverAPI) List(ctx context.Context, req *linkerV1.ListRequest) (*linkerV1.ListResponse, error) {
 	username := req.GetUsername()
 
 	s.log.Info("try to handle list request", slog.String("username", username))
+
+	if len(username) < minimalUsernameLength {
+		s.log.Info("request with invalid username")
+		return nil, status.Error(codes.InvalidArgument, MsgInvalidUsername)
+	}
 
 	links, err := s.linkerService.List(ctx, username)
 	if err != nil {
@@ -103,6 +127,16 @@ func (s *serverAPI) Delete(ctx context.Context, req *linkerV1.DeleteRequest) (*l
 	alias := req.GetAlias()
 
 	s.log.Info("try to handle delete request", slog.String("username", username), slog.String("alias", alias))
+
+	if len(username) < minimalUsernameLength {
+		s.log.Info("request with invalid username")
+		return nil, status.Error(codes.InvalidArgument, MsgInvalidUsername)
+	}
+
+	if alias == emptyAlias {
+		s.log.Info("request with empty alias")
+		return nil, status.Error(codes.InvalidArgument, MsgEmptyAlias)
+	}
 
 	if err := s.linkerService.Delete(ctx, username, alias); err != nil {
 		if errors.Is(err, storage.ErrRecordNotFound) {

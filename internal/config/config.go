@@ -18,7 +18,8 @@ type Config struct {
 }
 
 type ServerConfig struct {
-	Port uint `yaml:"port" env-default:"4404"`
+	Port    uint          `yaml:"port" env-default:"4404"`
+	Timeout time.Duration `yaml:"timeout" env-default:"5s"`
 }
 
 type DataBaseConfig struct {
@@ -35,6 +36,16 @@ func MustLoad() *Config {
 		panic("CONFIG_PATH is not set")
 	}
 
+	var cfg Config
+
+	if err := cleanenv.ReadConfig(configPath, &cfg); err != nil {
+		panic(fmt.Sprintf("Failed parse config: %v", err))
+	}
+
+	return &cfg
+}
+
+func MustLoadByPath(configPath string) *Config {
 	var cfg Config
 
 	if err := cleanenv.ReadConfig(configPath, &cfg); err != nil {

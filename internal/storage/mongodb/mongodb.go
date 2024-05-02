@@ -56,14 +56,13 @@ func (s *Storage) Close(ctx context.Context) error {
 	return s.records.Database().Client().Disconnect(ctx)
 }
 
-func (s *Storage) Post(ctx context.Context, username, link, alias string) (err error) {
-	filter := bson.D{{Key: "username", Value: username}, {Key: "link", Value: link}}
+func (s *Storage) Post(ctx context.Context, username, link, alias string) error {
+	filter := bson.D{{Key: "username", Value: username}, {Key: "alias", Value: alias}}
 
 	var result Record
-	if err := s.records.FindOne(ctx, filter).Decode(&result); err != nil {
-		if !errors.Is(err, mongo.ErrNoDocuments) {
-			return storage.ErrAliasAlreadyExists
-		}
+	err := s.records.FindOne(ctx, filter).Decode(&result)
+	if !errors.Is(err, mongo.ErrNoDocuments) {
+		return storage.ErrAliasAlreadyExists
 	}
 
 	data := Record{
@@ -71,6 +70,7 @@ func (s *Storage) Post(ctx context.Context, username, link, alias string) (err e
 		Link:     link,
 		Alias:    alias,
 	}
+
 	_, err = s.records.InsertOne(ctx, data)
 	if err != nil {
 		return err
@@ -79,7 +79,7 @@ func (s *Storage) Post(ctx context.Context, username, link, alias string) (err e
 	return nil
 }
 
-func (s *Storage) Pick(ctx context.Context, username, alias string) (link string, err error) {
+func (s *Storage) Pick(ctx context.Context, username, alias string) (string, error) {
 	filter := bson.D{{Key: "username", Value: username}, {Key: "alias", Value: alias}}
 
 	var result Record
@@ -93,7 +93,7 @@ func (s *Storage) Pick(ctx context.Context, username, alias string) (link string
 	return result.Link, nil
 }
 
-func (s *Storage) List(ctx context.Context, username string) (links []string, err error) {
+func (s *Storage) List(ctx context.Context, username string) ([]string, error) {
 	filter := bson.D{{Key: "username", Value: username}}
 
 	cursor, err := s.records.Find(ctx, filter)
@@ -104,6 +104,8 @@ func (s *Storage) List(ctx context.Context, username string) (links []string, er
 		return emptyLinks, err
 	}
 	defer func() { _ = cursor.Close(ctx) }()
+
+	links := make([]string, 0)
 
 	for cursor.Next(ctx) {
 		var result bson.M

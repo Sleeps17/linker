@@ -1,6 +1,6 @@
-MAINTAINER sleeps17
-
 FROM golang:1.22-alpine AS builder
+
+MAINTAINER sleeps17
 
 WORKDIR /go/src/app
 
