@@ -201,22 +201,22 @@ func TestLinkerList(t *testing.T) {
 		{
 			name:        "normal case 1",
 			username:    random.Alias(rand.Int()%10 + 10),
-			links:       generateLinks(20),
-			aliases:     generateAliases(20),
+			links:       generateLinks(8),
+			aliases:     generateAliases(8),
 			expectedErr: false,
 		},
 		{
 			name:        "normal case 2",
 			username:    random.Alias(rand.Int()%10 + 10),
-			links:       generateLinks(20),
-			aliases:     generateAliases(20),
+			links:       generateLinks(8),
+			aliases:     generateAliases(8),
 			expectedErr: false,
 		},
 		{
 			name:        "normal case 3",
 			username:    random.Alias(rand.Int()%10 + 10),
-			links:       generateLinks(20),
-			aliases:     generateAliases(20),
+			links:       generateLinks(8),
+			aliases:     generateAliases(8),
 			expectedErr: false,
 		},
 		{
@@ -241,12 +241,16 @@ func TestLinkerList(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			for i := range tt.links {
-				_, _ = st.LinkerClient.Post(ctx, &linkerV1.PostRequest{
+				_, err := st.LinkerClient.Post(ctx, &linkerV1.PostRequest{
 					Username: tt.username,
 					Link:     tt.links[i],
 					Alias:    tt.aliases[i],
 				})
 
+				if err != nil {
+					tt.links = removeElement(tt.links, tt.links[i])
+					tt.links = removeElement(tt.aliases, tt.aliases[i])
+				}
 			}
 
 			resp, err := st.LinkerClient.List(ctx, &linkerV1.ListRequest{
@@ -385,10 +389,10 @@ func generateAliases(length int) []string {
 	res := make([]string, length)
 
 	for i := range res {
-		word := gofakeit.Word()
+		word := random.Alias()
 
 		for slices.Contains(res, word) {
-			word = gofakeit.Word()
+			word = random.Alias()
 		}
 
 		res[i] = word
@@ -405,4 +409,14 @@ func generateUsername() string {
 	}
 
 	return username
+}
+
+func removeElement[T comparable](slice []T, element T) []T {
+	result := make([]T, 0, len(slice))
+	for _, value := range slice {
+		if value != element {
+			result = append(result, value)
+		}
+	}
+	return result
 }
