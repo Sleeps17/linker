@@ -2,10 +2,13 @@ package tests
 
 import (
 	linkerV1 "github.com/Sleeps17/linker-protos/gen/go/linker"
+	"github.com/Sleeps17/linker/pkg/random"
 	"github.com/Sleeps17/linker/tests/suite"
 	"github.com/brianvoe/gofakeit"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"math/rand"
+	"slices"
 	"testing"
 )
 
@@ -197,21 +200,21 @@ func TestLinkerList(t *testing.T) {
 	}{
 		{
 			name:        "normal case 1",
-			username:    generateUsername(),
+			username:    random.Alias(rand.Int()%10 + 10),
 			links:       generateLinks(20),
 			aliases:     generateAliases(20),
 			expectedErr: false,
 		},
 		{
 			name:        "normal case 2",
-			username:    generateUsername(),
+			username:    random.Alias(rand.Int()%10 + 10),
 			links:       generateLinks(20),
 			aliases:     generateAliases(20),
 			expectedErr: false,
 		},
 		{
 			name:        "normal case 3",
-			username:    generateUsername(),
+			username:    random.Alias(rand.Int()%10 + 10),
 			links:       generateLinks(20),
 			aliases:     generateAliases(20),
 			expectedErr: false,
@@ -258,6 +261,15 @@ func TestLinkerList(t *testing.T) {
 			}
 
 			assert.Equal(t, tt.aliases, resp.Links)
+
+			for i := range tt.links {
+				_, err := st.LinkerClient.Delete(ctx, &linkerV1.DeleteRequest{
+					Username: tt.username,
+					Alias:    tt.aliases[i],
+				})
+
+				require.NoError(t, err)
+			}
 		})
 	}
 }
@@ -266,27 +278,48 @@ func TestLinkerDelete(t *testing.T) {
 	ctx, st := suite.New(t)
 
 	tests := []struct {
-		name     string
-		username string
-		link     string
-		alias    string
+		name        string
+		username    string
+		link        string
+		alias       string
+		expectedErr bool
 	}{
-		{},
+		{
+			name:     "normal case 1",
+			username: generateUsername(),
+			link:     gofakeit.URL(),
+			alias:    gofakeit.Word(),
+		},
+		{
+			name:     "normal case 1",
+			username: generateUsername(),
+			link:     gofakeit.URL(),
+			alias:    gofakeit.Word(),
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 
-			_, _ = st.LinkerClient.Post(ctx, &linkerV1.PostRequest{
+			_, err := st.LinkerClient.Post(ctx, &linkerV1.PostRequest{
 				Username: tt.username,
 				Link:     tt.link,
 				Alias:    tt.alias,
 			})
 
-			_, _ = st.LinkerClient.Delete(ctx, &linkerV1.DeleteRequest{
+			require.NoError(t, err)
+
+			_, err = st.LinkerClient.Delete(ctx, &linkerV1.DeleteRequest{
 				Username: tt.username,
 				Alias:    tt.alias,
 			})
+
+			if !tt.expectedErr {
+				require.NoError(t, err)
+			} else {
+				require.Error(t, err)
+				return
+			}
 		})
 	}
 }
@@ -336,7 +369,13 @@ func generateLinks(length int) []string {
 	res := make([]string, length)
 
 	for i := range res {
-		res[i] = gofakeit.URL()
+		url := gofakeit.URL()
+
+		for slices.Contains(res, url) {
+			url = gofakeit.URL()
+		}
+
+		res[i] = url
 	}
 
 	return res
@@ -346,7 +385,13 @@ func generateAliases(length int) []string {
 	res := make([]string, length)
 
 	for i := range res {
-		res[i] = gofakeit.Word()
+		word := gofakeit.Word()
+
+		for slices.Contains(res, word) {
+			word = gofakeit.Word()
+		}
+
+		res[i] = word
 	}
 
 	return res
