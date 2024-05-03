@@ -2,6 +2,8 @@ github.com/BurntSushi/toml v1.2.1 h1:9F2/+DoOYIOksmaJFPw1tGFy1eDnIJXg+UHjuD8lTak
 github.com/BurntSushi/toml v1.2.1/go.mod h1:CxXYINrC8qIiEnFrOxCa7Jy5BFHlXnUU2pbicEuybxQ=
 github.com/Sleeps17/linker-protos v2.1.0+incompatible h1:m+sOUvhAWlapB5rWpDOPkdIymxeToEZNfsqFGgMxnQM=
 github.com/Sleeps17/linker-protos v2.1.0+incompatible/go.mod h1:g0sO0VKPZl5Zk+09P3vg8wb7NaL9++8TKHzBgUmCPUE=
+github.com/Sleeps17/linker-protos v3.0.0+incompatible h1:7+k5ZBRK/L0GMy2WzfcWGKnTva9V/ISfGpbnJ56+ttg=
+github.com/Sleeps17/linker-protos v3.0.0+incompatible/go.mod h1:g0sO0VKPZl5Zk+09P3vg8wb7NaL9++8TKHzBgUmCPUE=
 github.com/Sleeps17/linker/pkg/random v0.0.0-20240430103249-ee5935eda97b h1:vN199nAwTwool3nYFmliPoc9f+hbYa03We8aaq2wcvY=
 github.com/Sleeps17/linker/pkg/random v0.0.0-20240430103249-ee5935eda97b/go.mod h1:ESqMkSJvX5hHTrYdeL2pE1bpU7z8Hlf6YqeoVpESy3s=
 github.com/brianvoe/gofakeit v3.18.0+incompatible h1:wDOmHc9DLG4nRjUVVaxA+CEglKOW72Y5+4WNxUIkjM8=

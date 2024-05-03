@@ -21,7 +21,7 @@ const (
 type Service interface {
 	Post(ctx context.Context, username, link, alias string) (err error)
 	Pick(ctx context.Context, username, alias string) (link string, err error)
-	List(ctx context.Context, username string) (links []string, err error)
+	List(ctx context.Context, username string) (links []string, aliases []string, err error)
 	Delete(ctx context.Context, username, alias string) error
 }
 
@@ -112,14 +112,14 @@ func (s *serverAPI) List(ctx context.Context, req *linkerV1.ListRequest) (*linke
 		return nil, status.Error(codes.InvalidArgument, MsgInvalidUsername)
 	}
 
-	links, err := s.linkerService.List(ctx, username)
+	links, aliases, err := s.linkerService.List(ctx, username)
 	if err != nil {
 		s.log.Error("filed to handle list request", slog.String("err", err.Error()))
 		return nil, status.Error(codes.Internal, MsgInternalError)
 	}
 
 	s.log.Info("list request handled successfully")
-	return &linkerV1.ListResponse{Links: links}, nil
+	return &linkerV1.ListResponse{Links: links, Aliases: aliases}, nil
 }
 
 func (s *serverAPI) Delete(ctx context.Context, req *linkerV1.DeleteRequest) (*linkerV1.DeleteResponse, error) {

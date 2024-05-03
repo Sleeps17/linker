@@ -15,7 +15,8 @@ const (
 )
 
 var (
-	emptyLinks []string
+	emptyLinks   []string
+	emptyAliases []string
 )
 
 type Storage struct {
@@ -93,34 +94,38 @@ func (s *Storage) Pick(ctx context.Context, username, alias string) (string, err
 	return result.Link, nil
 }
 
-func (s *Storage) List(ctx context.Context, username string) ([]string, error) {
+func (s *Storage) List(ctx context.Context, username string) ([]string, []string, error) {
 	filter := bson.D{{Key: "username", Value: username}}
 
 	cursor, err := s.records.Find(ctx, filter)
 	if err != nil {
 		if errors.Is(err, mongo.ErrNoDocuments) {
-			return emptyLinks, nil
+			return emptyLinks, emptyAliases, nil
 		}
-		return emptyLinks, err
+		return emptyLinks, emptyAliases, err
 	}
 	defer func() { _ = cursor.Close(ctx) }()
 
 	links := make([]string, 0)
+	aliases := make([]string, 0)
 
 	for cursor.Next(ctx) {
 		var result bson.M
 		if err := cursor.Decode(&result); err != nil {
-			return nil, err
+			return emptyLinks, emptyAliases, err
 		}
-		link := result["alias"].(string)
+		link := result["link"].(string)
 		links = append(links, link)
+
+		alias := result["alias"].(string)
+		aliases = append(aliases, alias)
 	}
 
 	if err := cursor.Err(); err != nil {
-		return emptyLinks, err
+		return emptyLinks, emptyAliases, err
 	}
 
-	return links, nil
+	return links, aliases, nil
 }
 
 func (s *Storage) Delete(ctx context.Context, username string, alias string) error {
