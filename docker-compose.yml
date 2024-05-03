@@ -11,8 +11,9 @@ services:
             -   "mongodb_data:/data/mongodb"
 
     linker:
-        build: .
-        container_name: linker
+        image: sleeps17/linker:latest
+        container_name: linker-service
+        restart: always
         ports:
             - "4404:4404"
         depends_on:
