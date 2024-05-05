@@ -2,10 +2,11 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"github.com/Sleeps17/linker/internal/app"
 	"github.com/Sleeps17/linker/internal/config"
 	"github.com/Sleeps17/linker/internal/logger"
-	"github.com/Sleeps17/linker/internal/storage/mongodb"
+	"github.com/Sleeps17/linker/internal/storage/postgresql"
 	"log/slog"
 	"os"
 	"os/signal"
@@ -21,10 +22,10 @@ func main() {
 	log.Info("logger configured successfully", slog.String("env", cfg.Env))
 
 	// TODO: Init DB
-	ctx, cancel := context.WithTimeout(context.Background(), cfg.DataBase.ConnectionTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), cfg.DataBase.Timeout)
 	defer cancel()
-	storage := mongodb.MustNew(ctx, cfg.DataBase.ConnString, cfg.DataBase.DbName, cfg.DataBase.Collection)
-	log.Info("database configured successfully", slog.String("db_name", cfg.DataBase.DbName))
+	storage := postgresql.MustNew(ctx, createPostgresConnString(cfg))
+	log.Info("database configured successfully", slog.String("db_name", cfg.DataBase.Name))
 
 	// TODO: Init server
 	application := app.New(log, int(cfg.Server.Port), storage)
@@ -39,4 +40,15 @@ func main() {
 
 	<-stop
 	application.Stop()
+}
+
+func createPostgresConnString(cfg *config.Config) string {
+	return fmt.Sprintf(
+		"host=%s port=%s user=%s dbname=%s password=%s sslmode=disable",
+		cfg.DataBase.Host,
+		cfg.DataBase.Port,
+		cfg.DataBase.Username,
+		cfg.DataBase.Name,
+		cfg.DataBase.Password,
+	)
 }

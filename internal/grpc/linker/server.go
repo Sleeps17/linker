@@ -92,6 +92,12 @@ func (s *serverAPI) Pick(ctx context.Context, req *linkerV1.PickRequest) (*linke
 		if errors.Is(err, storage.ErrRecordNotFound) {
 			s.log.Info("record not found", slog.String("alias", alias))
 			return nil, status.Error(codes.InvalidArgument, MsgRecordNotFound)
+		} else if errors.Is(err, storage.ErrUserNotFound) {
+			s.log.Info("user not found", slog.String("username", username))
+			return nil, status.Error(codes.InvalidArgument, MsgUserNotFound)
+		} else if errors.Is(err, storage.ErrAliasNotFound) {
+			s.log.Info("alias not found", slog.String("alias", alias))
+			return nil, status.Error(codes.InvalidArgument, MsgAliasNotFound)
 		}
 
 		s.log.Error("filed to handle pick request", slog.String("err", err.Error()))
@@ -114,6 +120,10 @@ func (s *serverAPI) List(ctx context.Context, req *linkerV1.ListRequest) (*linke
 
 	links, aliases, err := s.linkerService.List(ctx, username)
 	if err != nil {
+		if errors.Is(err, storage.ErrUserNotFound) {
+			s.log.Info("user not found", slog.String("username", username))
+			return nil, status.Error(codes.InvalidArgument, MsgUserNotFound)
+		}
 		s.log.Error("filed to handle list request", slog.String("err", err.Error()))
 		return nil, status.Error(codes.Internal, MsgInternalError)
 	}
@@ -142,6 +152,11 @@ func (s *serverAPI) Delete(ctx context.Context, req *linkerV1.DeleteRequest) (*l
 		if errors.Is(err, storage.ErrRecordNotFound) {
 			s.log.Info("record not found", slog.String("alias", alias))
 			return nil, status.Error(codes.InvalidArgument, MsgRecordNotFound)
+		} else if errors.Is(err, storage.ErrAliasNotFound) {
+			s.log.Info("alias not found", slog.String("alias", alias))
+			return nil, status.Error(codes.InvalidArgument, MsgAliasNotFound)
+		} else if errors.Is(err, storage.ErrUserNotFound) {
+			return nil, status.Error(codes.InvalidArgument, MsgUserNotFound)
 		}
 
 		s.log.Error("filed to handle delete request", slog.String("err", err.Error()))

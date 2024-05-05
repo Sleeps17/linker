@@ -3,6 +3,13 @@ server:
     port: 4404
     timeout: 5s
 data_base:
-  conn_string: "mongodb://mongodb:27017"
-  db_name: "linker-db"
-  collection_name: "links-collection"
+  host: "db"
+  port: "5432"
+  name: "linker-db"
+  username: "sleeps17"
+  password: "Pavel19122004"
+  timeout: 10s
+#data_base:
+#  conn_string: "mongodb://mongodb:27017"
+#  db_name: "linker-db"
+#  collection_name: "links-collection"

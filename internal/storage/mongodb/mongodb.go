@@ -33,7 +33,7 @@ type Record struct {
 	Alias    string `bson:"alias"`
 }
 
-func MustNew(ctx context.Context, connString string, dbName string, collectionName string) *Storage {
+func MustNew(ctx context.Context, connString string, dbName string, collectionName string) storage.Storage {
 
 	client, err := mongo.Connect(ctx, options.Client().ApplyURI(connString))
 	if err != nil {

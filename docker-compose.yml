@@ -1,14 +1,27 @@
 version: '3.9'
 
 services:
-    mongodb:
-        image: mongo:latest
-        container_name: linker-mongodb
+    postgres:
+        image: postgres:latest
+        container_name: linker-postgres
         restart: always
         ports:
-            - "27018:27017"
+            - "5433:5432"
+        environment:
+            - POSTGRES_USER=sleeps17
+            - POSTGRES_DB=linker-db
+            - POSTGRES_PASSWORD=Pavel19122004
         volumes:
-            -   "mongodb_data:/data/mongodb"
+            -   "postgres_data:/data/postgres"
+
+#    mongodb:
+#        image: mongo:latest
+#        container_name: linker-mongodb
+#        restart: always
+#        ports:
+#            - "27018:27017"
+#        volumes:
+#            -   "mongodb_data:/data/mongodb"
 
     linker:
         image: sleeps17/linker:latest
@@ -17,6 +30,7 @@ services:
         ports:
             - "4404:4404"
         depends_on:
-            -   mongodb
+            -   postgres
 volumes:
     mongodb_data: {}
+    postgres_data: {}
