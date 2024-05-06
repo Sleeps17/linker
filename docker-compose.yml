@@ -9,7 +9,7 @@ services:
             - "5433:5432"
         environment:
             - POSTGRES_USER=sleeps17
-            - POSTGRES_DB=linker-test-db
+            - POSTGRES_DB=linker-db
             - POSTGRES_PASSWORD=Pavel19122004
         volumes:
             -   "postgres_data:/data/postgres"
