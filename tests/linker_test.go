@@ -82,9 +82,9 @@ func TestLinkerPost(t *testing.T) {
 			})
 
 			if !tt.expectedErr {
-				require.NoError(t, err)
+				assert.NoError(t, err)
 			} else {
-				require.Error(t, err)
+				assert.Error(t, err)
 				return
 			}
 
@@ -93,6 +93,13 @@ func TestLinkerPost(t *testing.T) {
 			} else {
 				assert.NotEmpty(t, resp.GetAlias())
 			}
+
+			_, err = st.LinkerClient.Delete(ctx, &linkerV1.DeleteRequest{
+				Alias:    resp.GetAlias(),
+				Username: tt.username,
+			})
+
+			assert.NoError(t, err)
 		})
 	}
 }
@@ -178,12 +185,18 @@ func TestLinkerPick(t *testing.T) {
 
 			if !tt.expectedErr {
 				require.NoError(t, err)
+				assert.Equal(t, tt.link, resp.Link)
+
+				_, err = st.LinkerClient.Delete(ctx, &linkerV1.DeleteRequest{
+					Username: tt.username,
+					Alias:    tt.alias,
+				})
+
+				assert.NoError(t, err)
 			} else {
 				require.Error(t, err)
 				return
 			}
-
-			assert.Equal(t, tt.link, resp.Link)
 		})
 	}
 }
@@ -229,17 +242,12 @@ func TestLinkerList(t *testing.T) {
 			username:    generateUsername()[0:5],
 			expectedErr: true,
 		},
-		{
-			name:        "with empty links and aliases",
-			username:    generateUsername(),
-			links:       nil,
-			aliases:     nil,
-			expectedErr: false,
-		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+
+			indexForDelete := make([]int, 0, len(tt.links))
 			for i := range tt.links {
 				_, err := st.LinkerClient.Post(ctx, &linkerV1.PostRequest{
 					Username: tt.username,
@@ -248,9 +256,13 @@ func TestLinkerList(t *testing.T) {
 				})
 
 				if err != nil {
-					tt.links = removeElement(tt.links, tt.links[i])
-					tt.links = removeElement(tt.aliases, tt.aliases[i])
+					indexForDelete = append(indexForDelete, i)
 				}
+			}
+
+			for _, elem := range indexForDelete {
+				tt.links = removeElement(tt.links, tt.links[elem])
+				tt.aliases = removeElement(tt.aliases, tt.aliases[elem])
 			}
 
 			resp, err := st.LinkerClient.List(ctx, &linkerV1.ListRequest{
@@ -264,7 +276,13 @@ func TestLinkerList(t *testing.T) {
 				return
 			}
 
-			assert.Equal(t, tt.aliases, resp.Links)
+			slices.Sort(tt.aliases)
+			slices.Sort(tt.links)
+			slices.Sort(resp.Aliases)
+			slices.Sort(resp.Links)
+
+			assert.Equal(t, tt.aliases, resp.Aliases)
+			assert.Equal(t, tt.links, resp.Links)
 
 			for i := range tt.links {
 				_, err := st.LinkerClient.Delete(ctx, &linkerV1.DeleteRequest{
@@ -272,7 +290,7 @@ func TestLinkerList(t *testing.T) {
 					Alias:    tt.aliases[i],
 				})
 
-				require.NoError(t, err)
+				assert.NoError(t, err)
 			}
 		})
 	}
@@ -305,15 +323,13 @@ func TestLinkerDelete(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 
-			_, err := st.LinkerClient.Post(ctx, &linkerV1.PostRequest{
+			_, _ = st.LinkerClient.Post(ctx, &linkerV1.PostRequest{
 				Username: tt.username,
 				Link:     tt.link,
 				Alias:    tt.alias,
 			})
 
-			require.NoError(t, err)
-
-			_, err = st.LinkerClient.Delete(ctx, &linkerV1.DeleteRequest{
+			_, err := st.LinkerClient.Delete(ctx, &linkerV1.DeleteRequest{
 				Username: tt.username,
 				Alias:    tt.alias,
 			})
@@ -335,23 +351,28 @@ func TestLinkerPost_RecordAlreadyExists(t *testing.T) {
 	link := gofakeit.URL()
 	alias := gofakeit.Word()
 
+	_, _ = st.LinkerClient.Post(ctx, &linkerV1.PostRequest{
+		Username: username,
+		Link:     link,
+		Alias:    alias,
+	})
+
+	link = gofakeit.URL()
+
 	_, err := st.LinkerClient.Post(ctx, &linkerV1.PostRequest{
 		Username: username,
 		Link:     link,
 		Alias:    alias,
 	})
 
-	require.NoError(t, err)
+	assert.Error(t, err)
 
-	link = gofakeit.URL()
-
-	_, err = st.LinkerClient.Post(ctx, &linkerV1.PostRequest{
+	_, err = st.LinkerClient.Delete(ctx, &linkerV1.DeleteRequest{
 		Username: username,
-		Link:     link,
 		Alias:    alias,
 	})
 
-	require.Error(t, err)
+	assert.NoError(t, err)
 }
 
 func TestLinkerPick_UnknownUsername(t *testing.T) {

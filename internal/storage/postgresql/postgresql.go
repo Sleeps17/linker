@@ -46,24 +46,34 @@ func (s *Storage) Close(ctx context.Context) error {
 	return s.db.Close()
 }
 
+func (s *Storage) addUser(ctx context.Context, username string) (int64, error) {
+	insertUserQuery := `INSERT INTO users (username) VALUES ($1) RETURNING id;`
+
+	var userID int64
+	err := s.db.QueryRowContext(ctx, insertUserQuery, username).Scan(&userID)
+	if err != nil {
+		return 0, err
+	}
+
+	return userID, nil
+}
+
 func (s *Storage) Post(ctx context.Context, username, link, alias string) error {
 	findUserQuery := `SELECT id FROM users WHERE username = $1;`
 
-	var userID int
+	var userID int64
 	err := s.db.QueryRowContext(ctx, findUserQuery, username).Scan(&userID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			insertUserQuery := `INSERT INTO users (username) VALUES ($1);`
-			_, err := s.db.ExecContext(ctx, insertUserQuery, username)
+			userID, err = s.addUser(ctx, username)
 			if err != nil {
-				return fmt.Errorf("failed to insert user: %w", err)
+				return fmt.Errorf("failed to add new user: %w", err)
 			}
 		} else {
 			return fmt.Errorf("failed to find user: %w", err)
 		}
 	}
 
-	// TODO: end this function
 	insertionQuery := `INSERT INTO links (user_id, link, alias) VALUES ($1, $2, $3);`
 	_, err = s.db.ExecContext(ctx, insertionQuery, userID, link, alias)
 	if err != nil {

@@ -9,11 +9,20 @@ services:
             - "5433:5432"
         environment:
             - POSTGRES_USER=sleeps17
-            - POSTGRES_DB=linker-db
+            - POSTGRES_DB=linker-test-db
             - POSTGRES_PASSWORD=Pavel19122004
         volumes:
             -   "postgres_data:/data/postgres"
 
+    linker:
+        build: .
+        container_name: linker-service
+        restart: always
+        ports:
+            -   "4404:4404"
+
+        depends_on:
+            -   postgres
 #    mongodb:
 #        image: mongo:latest
 #        container_name: linker-mongodb
@@ -23,14 +32,14 @@ services:
 #        volumes:
 #            -   "mongodb_data:/data/mongodb"
 
-    linker:
-        image: sleeps17/linker:latest
-        container_name: linker-service
-        restart: always
-        ports:
-            - "4404:4404"
-        depends_on:
-            -   postgres
+#    linker:
+#        image: sleeps17/linker:latest
+#        container_name: linker-service
+#        restart: always
+#        ports:
+#            - "4404:4404"
+#        depends_on:
+#           -   postgres
 volumes:
 #    mongodb_data: {}
     postgres_data: {}
