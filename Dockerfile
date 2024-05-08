@@ -16,7 +16,7 @@ COPY . .
 RUN go build -ldflags="-s -w" -o /go/bin/linker ./cmd/linker
 RUN upx -9 /go/bin/linker
 
-FROM gcr.io/distroless/static:latest AS runner
+FROM alpine:latest AS runner
 
 COPY --from=builder /go/bin/linker ./
 COPY config/config.yaml /config/config.yaml
