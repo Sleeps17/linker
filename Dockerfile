@@ -1,8 +1,10 @@
 FROM golang:1.22-alpine AS builder
 
-MAINTAINER sleeps17
+LABEL MAINTAINER="sleeps17"
 
 WORKDIR /go/src/app
+
+RUN apk add upx
 
 RUN apk --no-cache add git bash make gcc musl-dev
 
@@ -11,9 +13,10 @@ RUN go mod download
 
 COPY . .
 
-RUN go build -o /go/bin/linker ./cmd/linker
+RUN go build -ldflags="-s -w" -o /go/bin/linker ./cmd/linker
+RUN upx -9 /go/bin/linker
 
-FROM alpine:latest AS runner
+FROM gcr.io/distroless/static:latest AS runner
 
 COPY --from=builder /go/bin/linker ./
 COPY config/config.yaml /config/config.yaml
