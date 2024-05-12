@@ -9,6 +9,7 @@ const (
 	localEnv = "local"
 	devEnv   = "dev"
 	prodEnv  = "prod"
+	testEnv  = "test"
 )
 
 func Setup(env string) *slog.Logger {
@@ -29,8 +30,14 @@ func Setup(env string) *slog.Logger {
 		log = slog.New(
 			slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelWarn}),
 		)
+	case testEnv:
+		log = slog.New(
+			slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelError}),
+		)
 	default:
-
+		log = slog.New(
+			slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelWarn}),
+		)
 	}
 
 	return log

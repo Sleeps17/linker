@@ -11,35 +11,26 @@ services:
             - POSTGRES_USER=sleeps17
             - POSTGRES_DB=linker-db
             - POSTGRES_PASSWORD=Pavel19122004
+        networks:
+            - proxynet
         volumes:
-            -   "postgres_data:/data/postgres"
+            - "postgres_data:/data/postgres"
 
     linker:
         build: .
         container_name: linker-service
         restart: always
         ports:
-            -   "4404:4404"
-
+            - "4404:4404"
+        networks:
+            - proxynet
         depends_on:
-            -   postgres
-#    mongodb:
-#        image: mongo:latest
-#        container_name: linker-mongodb
-#        restart: always
-#        ports:
-#            - "27018:27017"
-#        volumes:
-#            -   "mongodb_data:/data/mongodb"
+            - postgres
 
-#    linker:
-#        image: sleeps17/linker:latest
-#        container_name: linker-service
-#        restart: always
-#        ports:
-#            - "4404:4404"
-#        depends_on:
-#           -   postgres
+networks:
+    proxynet:
+        external:
+            name: proxynet
+
 volumes:
-#    mongodb_data: {}
     postgres_data: {}

@@ -12,9 +12,10 @@ const (
 )
 
 type Config struct {
-	Env      string           `yaml:"env" env-default:"local"`
-	Server   ServerConfig     `yaml:"server"`
-	DataBase PostgresDBConfig `yaml:"data_base"`
+	Env                string                   `yaml:"env" env-default:"local"`
+	Server             ServerConfig             `yaml:"server"`
+	DataBase           PostgresDBConfig         `yaml:"data_base"`
+	UrlShortenerClient UrlShortenerClientConfig `yaml:"url_shortener_client"`
 }
 
 type ServerConfig struct {
@@ -36,6 +37,13 @@ type PostgresDBConfig struct {
 	Name     string        `yaml:"name" env-required:"true"`
 	Username string        `yaml:"username" env-required:"true"`
 	Password string        `yaml:"password" env-required:"true"`
+}
+
+type UrlShortenerClientConfig struct {
+	Host     string `yaml:"host" env-default:"localhost"`
+	Port     string `yaml:"port" env-default:"8080"`
+	Username string `yaml:"username" env-default:"pasha"`
+	Password string `yaml:"password" env-default:"1234"`
 }
 
 func MustLoad() *Config {

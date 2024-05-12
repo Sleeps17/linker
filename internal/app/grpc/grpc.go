@@ -2,6 +2,7 @@ package grpcApp
 
 import (
 	"fmt"
+	urlShortener "github.com/Sleeps17/linker/internal/clients/url-shortener"
 	server "github.com/Sleeps17/linker/internal/grpc/linker"
 	"google.golang.org/grpc"
 	"log/slog"
@@ -14,10 +15,10 @@ type App struct {
 	port   int
 }
 
-func New(log *slog.Logger, port int, linkerService server.Service) *App {
+func New(log *slog.Logger, port int, linkerService server.Service, urlShortener urlShortener.UrlShortener) *App {
 	grpcServer := grpc.NewServer()
 
-	server.Register(grpcServer, linkerService, log)
+	server.Register(grpcServer, linkerService, log, urlShortener)
 
 	return &App{
 		log:    log,

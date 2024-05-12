@@ -260,9 +260,11 @@ func TestLinkerList(t *testing.T) {
 				}
 			}
 
+			cnt := 0
 			for _, elem := range indexForDelete {
-				tt.links = removeElement(tt.links, tt.links[elem])
-				tt.aliases = removeElement(tt.aliases, tt.aliases[elem])
+				tt.links = removeElement(tt.links, tt.links[elem-cnt])
+				tt.aliases = removeElement(tt.aliases, tt.aliases[elem-cnt])
+				cnt++
 			}
 
 			resp, err := st.LinkerClient.List(ctx, &linkerV1.ListRequest{
@@ -281,8 +283,8 @@ func TestLinkerList(t *testing.T) {
 			slices.Sort(resp.Aliases)
 			slices.Sort(resp.Links)
 
-			assert.Equal(t, tt.aliases, resp.Aliases)
 			assert.Equal(t, tt.links, resp.Links)
+			assert.Equal(t, tt.aliases, resp.Aliases)
 
 			for i := range tt.links {
 				_, err := st.LinkerClient.Delete(ctx, &linkerV1.DeleteRequest{
@@ -323,13 +325,15 @@ func TestLinkerDelete(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 
-			_, _ = st.LinkerClient.Post(ctx, &linkerV1.PostRequest{
+			_, err := st.LinkerClient.Post(ctx, &linkerV1.PostRequest{
 				Username: tt.username,
 				Link:     tt.link,
 				Alias:    tt.alias,
 			})
 
-			_, err := st.LinkerClient.Delete(ctx, &linkerV1.DeleteRequest{
+			require.NoError(t, err)
+
+			_, err = st.LinkerClient.Delete(ctx, &linkerV1.DeleteRequest{
 				Username: tt.username,
 				Alias:    tt.alias,
 			})
@@ -351,28 +355,30 @@ func TestLinkerPost_RecordAlreadyExists(t *testing.T) {
 	link := gofakeit.URL()
 	alias := gofakeit.Word()
 
-	_, _ = st.LinkerClient.Post(ctx, &linkerV1.PostRequest{
-		Username: username,
-		Link:     link,
-		Alias:    alias,
-	})
-
-	link = gofakeit.URL()
-
 	_, err := st.LinkerClient.Post(ctx, &linkerV1.PostRequest{
 		Username: username,
 		Link:     link,
 		Alias:    alias,
 	})
 
-	assert.Error(t, err)
+	require.NoError(t, err)
+
+	link = gofakeit.URL()
+
+	_, err = st.LinkerClient.Post(ctx, &linkerV1.PostRequest{
+		Username: username,
+		Link:     link,
+		Alias:    alias,
+	})
+
+	require.Error(t, err)
 
 	_, err = st.LinkerClient.Delete(ctx, &linkerV1.DeleteRequest{
 		Username: username,
 		Alias:    alias,
 	})
 
-	assert.NoError(t, err)
+	require.NoError(t, err)
 }
 
 func TestLinkerPick_UnknownUsername(t *testing.T) {

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	linkerV1 "github.com/Sleeps17/linker-protos/gen/go/linker"
+	urlShortener "github.com/Sleeps17/linker/internal/clients/url-shortener"
 	"github.com/Sleeps17/linker/internal/storage"
 	"github.com/Sleeps17/linker/pkg/random"
 	"github.com/go-playground/validator"
@@ -11,6 +12,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"log/slog"
+	"strings"
 )
 
 const (
@@ -28,11 +30,12 @@ type Service interface {
 type serverAPI struct {
 	linkerV1.UnimplementedLinkerServer
 	log           *slog.Logger
+	urlShortener  urlShortener.UrlShortener
 	linkerService Service
 }
 
-func Register(s *grpc.Server, linkerService Service, log *slog.Logger) {
-	linkerV1.RegisterLinkerServer(s, &serverAPI{linkerService: linkerService, log: log})
+func Register(s *grpc.Server, linkerService Service, log *slog.Logger, urlShortener urlShortener.UrlShortener) {
+	linkerV1.RegisterLinkerServer(s, &serverAPI{linkerService: linkerService, log: log, urlShortener: urlShortener})
 }
 
 func (s *serverAPI) Post(ctx context.Context, req *linkerV1.PostRequest) (*linkerV1.PostResponse, error) {
@@ -55,6 +58,14 @@ func (s *serverAPI) Post(ctx context.Context, req *linkerV1.PostRequest) (*linke
 	if err := validator.New().Var(link, "required,url"); err != nil {
 		s.log.Info("request with invalid link", slog.String("link", link))
 		return nil, status.Error(codes.InvalidArgument, MsgInvalidLink)
+	}
+
+	newLink, err := s.urlShortener.SaveURL(ctx, link, alias)
+	if err != nil {
+		s.log.Info("filed to short link", slog.String("err", err.Error()))
+	} else {
+		link = newLink
+		s.log.Info("short link generated", slog.String("link", link))
 	}
 
 	if err := s.linkerService.Post(ctx, username, link, alias); err != nil {
@@ -100,7 +111,7 @@ func (s *serverAPI) Pick(ctx context.Context, req *linkerV1.PickRequest) (*linke
 			return nil, status.Error(codes.InvalidArgument, MsgAliasNotFound)
 		}
 
-		s.log.Error("filed to handle pick request", slog.String("err", err.Error()))
+		s.log.Error("failed to handle pick request", slog.String("err", err.Error()))
 		return nil, status.Error(codes.Internal, MsgInternalError)
 	}
 
@@ -163,6 +174,17 @@ func (s *serverAPI) Delete(ctx context.Context, req *linkerV1.DeleteRequest) (*l
 		return nil, status.Error(codes.Internal, MsgInternalError)
 	}
 
+	err := s.urlShortener.DeleteURL(ctx, getAlias(alias))
+	if err != nil {
+		s.log.Error("failed to delete url", slog.String("err", err.Error()))
+	}
+
 	s.log.Info("delete request handled successfully", slog.String("alias", alias))
 	return &linkerV1.DeleteResponse{Alias: alias}, nil
+}
+
+func getAlias(link string) string {
+	parts := strings.Split(link, "/")
+	lastPart := parts[len(parts)-1]
+	return lastPart
 }

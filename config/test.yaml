@@ -1,9 +1,9 @@
-env: "local"
+env: "test"
 server:
-    port: 4404
-    timeout: 10s
+  port: 4404
+  timeout: 10s
 data_base:
-  host: "linker-postgres"
+  host: "0.0.0.0"
   port: "5433"
   name: "linker-db"
   username: "sleeps17"
@@ -12,8 +12,3 @@ data_base:
 url_shortener_client:
   host: "url-shortener-service"
   port: "8081"
-
-#data_base:
-#  conn_string: "mongodb://mongodb:27017"
-#  db_name: "linker-db"
-#  collection_name: "links-collection"

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/Sleeps17/linker/internal/app"
+	urlShortenerClient "github.com/Sleeps17/linker/internal/clients/url-shortener/url-shortener-client"
 	"github.com/Sleeps17/linker/internal/config"
 	"github.com/Sleeps17/linker/internal/logger"
 	"github.com/Sleeps17/linker/internal/storage/postgresql"
@@ -27,8 +28,15 @@ func main() {
 	storage := postgresql.MustNew(ctx, createPostgresConnString(cfg))
 	log.Info("database configured successfully", slog.String("db_name", cfg.DataBase.Name))
 
+	urlShortener := urlShortenerClient.New(
+		cfg.UrlShortenerClient.Host,
+		cfg.UrlShortenerClient.Port,
+		cfg.UrlShortenerClient.Username,
+		cfg.UrlShortenerClient.Password,
+	)
+
 	// TODO: Init server
-	application := app.New(log, int(cfg.Server.Port), storage)
+	application := app.New(log, int(cfg.Server.Port), storage, urlShortener)
 	log.Info("application configured successfully")
 
 	// TODO: Start server

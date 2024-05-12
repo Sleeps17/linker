@@ -31,12 +31,18 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Up server
+      - name: Setup go-task
+        uses: pnorton5432/setup-task@v1
+        with:
+          task-version: 3.29.1
+
+      - name: Build image
         run: |
-          docker-compose up --build -d
+          task build
 
       - name: Run tests
-        run: go test -count=1 ./tests
+        run: |
+          task test
 
   publish:
     needs:
