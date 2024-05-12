@@ -60,9 +60,10 @@ func (s *serverAPI) Post(ctx context.Context, req *linkerV1.PostRequest) (*linke
 		return nil, status.Error(codes.InvalidArgument, MsgInvalidLink)
 	}
 
+	s.log.Info("try to short link", slog.String("link", link))
 	newLink, err := s.urlShortener.SaveURL(ctx, link, alias)
 	if err != nil {
-		s.log.Info("filed to short link", slog.String("err", err.Error()))
+		s.log.Info("failed to short link", slog.String("err", err.Error()))
 	} else {
 		link = newLink
 		s.log.Info("short link generated", slog.String("link", link))
@@ -74,7 +75,7 @@ func (s *serverAPI) Post(ctx context.Context, req *linkerV1.PostRequest) (*linke
 			return nil, status.Error(codes.InvalidArgument, MsgAliasAlreadyExists)
 		}
 
-		s.log.Error("filed to handle post request", slog.String("err", err.Error()))
+		s.log.Error("failed to handle post request", slog.String("err", err.Error()))
 		return nil, status.Error(codes.Internal, MsgInternalError)
 	}
 
@@ -174,9 +175,10 @@ func (s *serverAPI) Delete(ctx context.Context, req *linkerV1.DeleteRequest) (*l
 		return nil, status.Error(codes.Internal, MsgInternalError)
 	}
 
+	s.log.Info("try to delete link from shortener", slog.String("alias", alias))
 	err := s.urlShortener.DeleteURL(ctx, getAlias(alias))
 	if err != nil {
-		s.log.Error("failed to delete url", slog.String("err", err.Error()))
+		s.log.Info("failed to delete url", slog.String("err", err.Error()))
 	}
 
 	s.log.Info("delete request handled successfully", slog.String("alias", alias))
