@@ -4,7 +4,7 @@ server:
     timeout: 10s
 data_base:
   host: "linker-postgres"
-  port: "5433"
+  port: "5432"
   name: "linker-db"
   username: "sleeps17"
   password: "Pavel19122004"
