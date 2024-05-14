@@ -14,7 +14,7 @@ services:
         networks:
             - proxynet
         volumes:
-            - "postgres_data:/data/postgres"
+            - "postgres_data:/var/lib/postgresql/data"
 
     linker:
         build: .

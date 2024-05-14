@@ -1,6 +1,6 @@
 env: "test"
 server:
-  port: 4404
+  port: 4402
   timeout: 10s
 data_base:
   host: "0.0.0.0"

@@ -1,7 +1,7 @@
 package tests
 
 import (
-	linkerV1 "github.com/Sleeps17/linker-protos/gen/go/linker"
+	linkerV1 "github.com/Sleeps17/linker-protos/gen/go/linker/v1"
 	"github.com/Sleeps17/linker/pkg/random"
 	"github.com/Sleeps17/linker/tests/suite"
 	"github.com/brianvoe/gofakeit"

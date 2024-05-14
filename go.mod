@@ -3,7 +3,7 @@ module github.com/Sleeps17/linker
 go 1.22.2
 
 require (
-	github.com/Sleeps17/linker-protos v3.0.0+incompatible
+	github.com/Sleeps17/linker-protos v1.2.0
 	github.com/Sleeps17/linker/pkg/random v0.0.0-20240430103249-ee5935eda97b
 	github.com/brianvoe/gofakeit v3.18.0+incompatible
 	github.com/go-playground/validator v9.31.0+incompatible

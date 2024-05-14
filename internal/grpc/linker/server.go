@@ -3,7 +3,7 @@ package linker
 import (
 	"context"
 	"errors"
-	linkerV1 "github.com/Sleeps17/linker-protos/gen/go/linker"
+	linkerV1 "github.com/Sleeps17/linker-protos/gen/go/linker/v1"
 	urlShortener "github.com/Sleeps17/linker/internal/clients/url-shortener"
 	"github.com/Sleeps17/linker/internal/storage"
 	"github.com/Sleeps17/linker/pkg/random"

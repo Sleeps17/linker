@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	linkerV1 "github.com/Sleeps17/linker-protos/gen/go/linker"
+	linkerV1 "github.com/Sleeps17/linker-protos/gen/go/linker/v1"
 	"github.com/Sleeps17/linker/internal/app"
 	mockUrlShortener "github.com/Sleeps17/linker/internal/clients/url-shortener/mock"
 	"github.com/Sleeps17/linker/internal/config"
