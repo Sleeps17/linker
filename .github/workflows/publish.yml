@@ -2,11 +2,8 @@ name: Publish my app to DockerHub
 
 on:
   push:
-    branches:
-      - main
-  pull_request:
-    branches:
-      - main
+    tags:
+      - "v*.*.*"
 
 jobs:
   lint:
@@ -62,10 +59,13 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
+      - name: Get the latest tag
+        run: echo "::set-env name=LATEST_TAG::$(git describe --abbrev=0 --tags)"
+
       - name: Build and push
         uses: docker/build-push-action@v4
         with:
           context: .
           file: ./Dockerfile
           push: true
-          tags: ${{ secrets.DOCKERHUB_USERNAME }}/linker:latest
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/linker:${{ env.LATEST_TAG }}
