@@ -2,12 +2,10 @@ package tests
 
 import (
 	linkerV2 "github.com/Sleeps17/linker-protos/gen/go/linker"
-	"github.com/Sleeps17/linker/pkg/random"
 	"github.com/Sleeps17/linker/tests/suite"
 	"github.com/brianvoe/gofakeit"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"slices"
 	"testing"
 )
 
@@ -173,38 +171,6 @@ func TestLinkerPickLink(t *testing.T) {
 	}
 }
 
-func generateLinks(length int) []string {
-	res := make([]string, length)
-
-	for i := range res {
-		url := gofakeit.URL()
-
-		for slices.Contains(res, url) {
-			url = gofakeit.URL()
-		}
-
-		res[i] = url
-	}
-
-	return res
-}
-
-func generateAliases(length int) []string {
-	res := make([]string, length)
-
-	for i := range res {
-		word := random.Alias()
-
-		for slices.Contains(res, word) {
-			word = random.Alias()
-		}
-
-		res[i] = word
-	}
-
-	return res
-}
-
 func generateUsername() string {
 	var username string
 
@@ -215,12 +181,45 @@ func generateUsername() string {
 	return username
 }
 
-func removeElement[T comparable](slice []T, element T) []T {
-	result := make([]T, 0, len(slice))
-	for _, value := range slice {
-		if value != element {
-			result = append(result, value)
-		}
-	}
-	return result
-}
+//func generateLinks(length int) []string {
+//	res := make([]string, length)
+//
+//	for i := range res {
+//		url := gofakeit.URL()
+//
+//		for slices.Contains(res, url) {
+//			url = gofakeit.URL()
+//		}
+//
+//		res[i] = url
+//	}
+//
+//	return res
+//}
+
+//	func generateAliases(length int) []string {
+//		res := make([]string, length)
+//
+//		for i := range res {
+//			word := random.Alias()
+//
+//			for slices.Contains(res, word) {
+//				word = random.Alias()
+//			}
+//
+//			res[i] = word
+//		}
+//
+//		return res
+//	}
+
+//
+//func removeElement[T comparable](slice []T, element T) []T {
+//	result := make([]T, 0, len(slice))
+//	for _, value := range slice {
+//		if value != element {
+//			result = append(result, value)
+//		}
+//	}
+//	return result
+//}

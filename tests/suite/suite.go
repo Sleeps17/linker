@@ -59,7 +59,7 @@ func New(t *testing.T) (context.Context, *Suite) {
 		application.Stop()
 	})
 
-	cc, err := grpc.DialContext(ctx, serverAddress(cfg), grpc.WithTransportCredentials(insecure.NewCredentials()))
+	cc, err := grpc.NewClient(serverAddress(cfg), grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		t.Fatalf("grpc server connection failed: %v", err)
 	}

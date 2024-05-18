@@ -7,7 +7,7 @@ var (
 	);`
 	selectUserQuery = `SELECT id FROM users WHERE username = $1;`
 	insertUserQuery = `INSERT INTO users (username) VALUES ($1) RETURNING id;`
-	deleteUserQuery = `DELETE FROM users WHERE username = $1;`
+	//deleteUserQuery = `DELETE FROM users WHERE username = $1;`
 
 	createTopicsTableQuery = `CREATE TABLE IF NOT EXISTS "topics" (
     	"id" SERIAL PRIMARY KEY,
