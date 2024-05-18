@@ -36,7 +36,7 @@ func main() {
 	)
 
 	// TODO: Init server
-	application := app.New(log, int(cfg.Server.Port), storage, urlShortener)
+	application := app.New(log, int(cfg.Server.Port), storage, storage, urlShortener)
 	log.Info("application configured successfully")
 
 	// TODO: Start server

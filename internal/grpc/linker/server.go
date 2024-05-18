@@ -3,7 +3,7 @@ package linker
 import (
 	"context"
 	"errors"
-	linkerV1 "github.com/Sleeps17/linker-protos/gen/go/linker/v1"
+	linkerV2 "github.com/Sleeps17/linker-protos/gen/go/linker"
 	urlShortener "github.com/Sleeps17/linker/internal/clients/url-shortener"
 	"github.com/Sleeps17/linker/internal/storage"
 	"github.com/Sleeps17/linker/pkg/random"
@@ -18,28 +18,141 @@ import (
 const (
 	minimalUsernameLength = 8
 	emptyAlias            = ""
+	emptyTopic            = ""
 )
 
-type Service interface {
-	Post(ctx context.Context, username, link, alias string) (err error)
-	Pick(ctx context.Context, username, alias string) (link string, err error)
-	List(ctx context.Context, username string) (links []string, aliases []string, err error)
-	Delete(ctx context.Context, username, alias string) error
+type TopicService interface {
+	PostTopic(ctx context.Context, username, topic string) (topicID uint32, err error)
+	DeleteTopic(ctx context.Context, username, topic string) (topicID uint32, err error)
+	ListTopics(ctx context.Context, username string) (topics []string, err error)
+}
+
+type LinkService interface {
+	PostLink(ctx context.Context, username, topic, link, alias string) (err error)
+	PickLink(ctx context.Context, username, topic, alias string) (link string, err error)
+	DeleteLink(ctx context.Context, username, topic, alias string) (err error)
+	ListLinks(ctx context.Context, username, topic string) (links []string, aliases []string, err error)
 }
 
 type serverAPI struct {
-	linkerV1.UnimplementedLinkerServer
+	linkerV2.UnimplementedLinkerServer
 	log           *slog.Logger
+	topicService  TopicService
+	linkerService LinkService
 	urlShortener  urlShortener.UrlShortener
-	linkerService Service
 }
 
-func Register(s *grpc.Server, linkerService Service, log *slog.Logger, urlShortener urlShortener.UrlShortener) {
-	linkerV1.RegisterLinkerServer(s, &serverAPI{linkerService: linkerService, log: log, urlShortener: urlShortener})
+func Register(
+	s *grpc.Server,
+	log *slog.Logger,
+	linkerService LinkService,
+	topicService TopicService,
+	urlShortener urlShortener.UrlShortener,
+) {
+	linkerV2.RegisterLinkerServer(
+		s, &serverAPI{
+			log:           log,
+			linkerService: linkerService,
+			topicService:  topicService,
+			urlShortener:  urlShortener,
+		},
+	)
 }
 
-func (s *serverAPI) Post(ctx context.Context, req *linkerV1.PostRequest) (*linkerV1.PostResponse, error) {
+func (s *serverAPI) PostTopic(ctx context.Context, req *linkerV2.PostTopicRequest) (*linkerV2.PostTopicResponse, error) {
 	username := req.GetUsername()
+	topic := req.GetTopic()
+
+	s.log.Info("try to handle post topic request", slog.String("username", username), slog.String("topic", topic))
+
+	if len(username) < minimalUsernameLength {
+		s.log.Info("request with invalid username")
+		return nil, status.Error(codes.InvalidArgument, MsgInvalidUsername)
+	}
+
+	if topic == emptyTopic {
+		s.log.Info("request with empty topic")
+		return nil, status.Error(codes.InvalidArgument, MsgEmptyTopic)
+	}
+
+	topicId, err := s.topicService.PostTopic(ctx, username, topic)
+	if err != nil {
+
+		if errors.Is(err, storage.ErrTopicAlreadyExists) {
+			s.log.Info("topic already exists", slog.String("user", username), slog.String("topic", topic))
+			return nil, status.Error(codes.InvalidArgument, MsgTopicAlreadyExists)
+		}
+
+		s.log.Error("failed to handle post topic request", slog.String("err", err.Error()))
+		return nil, status.Error(codes.Internal, MsgInternalError)
+	}
+
+	s.log.Info("post topic request handled successfully", slog.Any("topic_id", topicId))
+	return &linkerV2.PostTopicResponse{TopicId: topicId}, nil
+}
+
+func (s *serverAPI) DeleteTopic(ctx context.Context, req *linkerV2.DeleteTopicRequest) (*linkerV2.DeleteTopicResponse, error) {
+	username := req.GetUsername()
+	topic := req.GetTopic()
+
+	s.log.Info("try to handle delete topic request", slog.String("username", username), slog.String("topic", topic))
+
+	if len(username) < minimalUsernameLength {
+		s.log.Info("request with invalid username")
+		return nil, status.Error(codes.InvalidArgument, MsgInvalidUsername)
+	}
+
+	if topic == emptyTopic {
+		s.log.Info("request with empty topic")
+		return nil, status.Error(codes.InvalidArgument, MsgEmptyTopic)
+	}
+
+	topicId, err := s.topicService.DeleteTopic(ctx, username, topic)
+	if err != nil {
+		if errors.Is(err, storage.ErrUserNotFound) {
+			s.log.Info("user not found", slog.String("user", username), slog.String("topic", topic))
+			return nil, status.Error(codes.InvalidArgument, MsgUserNotFound)
+		}
+
+		if errors.Is(err, storage.ErrTopicNotFound) {
+			s.log.Info("topic not found", slog.String("user", username), slog.String("topic", topic))
+			return nil, status.Error(codes.InvalidArgument, MsgTopicNotFound)
+		}
+
+		s.log.Error("failed to handle delete topic request", slog.String("err", err.Error()))
+		return nil, status.Error(codes.Internal, MsgInternalError)
+	}
+
+	s.log.Info("delete topic request handled successfully", slog.Any("topic_id", topicId))
+	return &linkerV2.DeleteTopicResponse{TopicId: topicId}, nil
+}
+
+func (s *serverAPI) ListTopics(ctx context.Context, req *linkerV2.ListTopicsRequest) (*linkerV2.ListTopicsResponse, error) {
+	username := req.GetUsername()
+
+	if len(username) < minimalUsernameLength {
+		s.log.Info("request with invalid username")
+		return nil, status.Error(codes.InvalidArgument, MsgInvalidUsername)
+	}
+
+	topics, err := s.topicService.ListTopics(ctx, username)
+	if err != nil {
+		if errors.Is(err, storage.ErrUserNotFound) {
+			s.log.Info("user not found", slog.String("user", username))
+			return nil, status.Error(codes.InvalidArgument, MsgUserNotFound)
+		}
+
+		s.log.Error("failed to handle list topics request", slog.String("err", err.Error()))
+		return nil, status.Error(codes.Internal, MsgInternalError)
+	}
+
+	s.log.Info("list topics request handled successfully")
+	return &linkerV2.ListTopicsResponse{Topics: topics}, nil
+}
+
+func (s *serverAPI) PostLink(ctx context.Context, req *linkerV2.PostLinkRequest) (*linkerV2.PostLinkResponse, error) {
+	username := req.GetUsername()
+	topic := req.GetTopic()
 	link := req.GetLink()
 	alias := req.GetAlias()
 
@@ -48,6 +161,11 @@ func (s *serverAPI) Post(ctx context.Context, req *linkerV1.PostRequest) (*linke
 	if len(username) < minimalUsernameLength {
 		s.log.Info("request with invalid username")
 		return nil, status.Error(codes.InvalidArgument, MsgInvalidUsername)
+	}
+
+	if topic == emptyTopic {
+		s.log.Info("request with empty topic")
+		return nil, status.Error(codes.InvalidArgument, MsgEmptyTopic)
 	}
 
 	if alias == emptyAlias {
@@ -69,7 +187,17 @@ func (s *serverAPI) Post(ctx context.Context, req *linkerV1.PostRequest) (*linke
 		s.log.Info("short link generated", slog.String("link", link))
 	}
 
-	if err := s.linkerService.Post(ctx, username, link, alias); err != nil {
+	if err := s.linkerService.PostLink(ctx, username, topic, link, alias); err != nil {
+		if errors.Is(err, storage.ErrUserNotFound) {
+			s.log.Info("user not found", slog.String("user", username))
+			return nil, status.Error(codes.InvalidArgument, MsgUserNotFound)
+		}
+
+		if errors.Is(err, storage.ErrTopicNotFound) {
+			s.log.Info("topic not found", slog.String("user", username), slog.String("topic", topic))
+			return nil, status.Error(codes.InvalidArgument, MsgTopicNotFound)
+		}
+
 		if errors.Is(err, storage.ErrAliasAlreadyExists) {
 			s.log.Info("alias already exists", slog.String("alias", alias))
 			return nil, status.Error(codes.InvalidArgument, MsgAliasAlreadyExists)
@@ -80,11 +208,12 @@ func (s *serverAPI) Post(ctx context.Context, req *linkerV1.PostRequest) (*linke
 	}
 
 	s.log.Info("post request handled successfully", slog.String("alias", alias))
-	return &linkerV1.PostResponse{Alias: alias}, nil
+	return &linkerV2.PostLinkResponse{Alias: alias}, nil
 }
 
-func (s *serverAPI) Pick(ctx context.Context, req *linkerV1.PickRequest) (*linkerV1.PickResponse, error) {
+func (s *serverAPI) PickLink(ctx context.Context, req *linkerV2.PickLinkRequest) (*linkerV2.PickLinkResponse, error) {
 	username := req.GetUsername()
+	topic := req.GetTopic()
 	alias := req.GetAlias()
 
 	s.log.Info("try to handle pick request", slog.String("username", username), slog.String("alias", alias))
@@ -94,20 +223,29 @@ func (s *serverAPI) Pick(ctx context.Context, req *linkerV1.PickRequest) (*linke
 		return nil, status.Error(codes.InvalidArgument, MsgInvalidUsername)
 	}
 
+	if topic == emptyTopic {
+		s.log.Info("request with empty topic")
+		return nil, status.Error(codes.InvalidArgument, MsgEmptyTopic)
+	}
+
 	if alias == emptyAlias {
 		s.log.Info("request with empty alias")
 		return nil, status.Error(codes.InvalidArgument, MsgEmptyAlias)
 	}
 
-	link, err := s.linkerService.Pick(ctx, username, alias)
+	link, err := s.linkerService.PickLink(ctx, username, topic, alias)
 	if err != nil {
-		if errors.Is(err, storage.ErrRecordNotFound) {
-			s.log.Info("record not found", slog.String("alias", alias))
-			return nil, status.Error(codes.InvalidArgument, MsgRecordNotFound)
-		} else if errors.Is(err, storage.ErrUserNotFound) {
-			s.log.Info("user not found", slog.String("username", username))
+		if errors.Is(err, storage.ErrUserNotFound) {
+			s.log.Info("user not found", slog.String("user", username))
 			return nil, status.Error(codes.InvalidArgument, MsgUserNotFound)
-		} else if errors.Is(err, storage.ErrAliasNotFound) {
+		}
+
+		if errors.Is(err, storage.ErrTopicNotFound) {
+			s.log.Info("topic not found", slog.String("user", username), slog.String("topic", topic))
+			return nil, status.Error(codes.InvalidArgument, MsgTopicNotFound)
+		}
+
+		if errors.Is(err, storage.ErrAliasNotFound) {
 			s.log.Info("alias not found", slog.String("alias", alias))
 			return nil, status.Error(codes.InvalidArgument, MsgAliasNotFound)
 		}
@@ -117,11 +255,12 @@ func (s *serverAPI) Pick(ctx context.Context, req *linkerV1.PickRequest) (*linke
 	}
 
 	s.log.Info("pick request handled successfully", slog.String("alias", alias))
-	return &linkerV1.PickResponse{Link: link}, nil
+	return &linkerV2.PickLinkResponse{Link: link}, nil
 }
 
-func (s *serverAPI) List(ctx context.Context, req *linkerV1.ListRequest) (*linkerV1.ListResponse, error) {
+func (s *serverAPI) ListLinks(ctx context.Context, req *linkerV2.ListLinksRequest) (*linkerV2.ListLinksResponse, error) {
 	username := req.GetUsername()
+	topic := req.GetTopic()
 
 	s.log.Info("try to handle list request", slog.String("username", username))
 
@@ -130,22 +269,34 @@ func (s *serverAPI) List(ctx context.Context, req *linkerV1.ListRequest) (*linke
 		return nil, status.Error(codes.InvalidArgument, MsgInvalidUsername)
 	}
 
-	links, aliases, err := s.linkerService.List(ctx, username)
+	if topic == emptyTopic {
+		s.log.Info("request with empty topic")
+		return nil, status.Error(codes.InvalidArgument, MsgEmptyTopic)
+	}
+
+	links, aliases, err := s.linkerService.ListLinks(ctx, username, topic)
 	if err != nil {
 		if errors.Is(err, storage.ErrUserNotFound) {
-			s.log.Info("user not found", slog.String("username", username))
+			s.log.Info("user not found", slog.String("user", username))
 			return nil, status.Error(codes.InvalidArgument, MsgUserNotFound)
 		}
+
+		if errors.Is(err, storage.ErrTopicNotFound) {
+			s.log.Info("topic not found", slog.String("user", username), slog.String("topic", topic))
+			return nil, status.Error(codes.InvalidArgument, MsgTopicNotFound)
+		}
+
 		s.log.Error("filed to handle list request", slog.String("err", err.Error()))
 		return nil, status.Error(codes.Internal, MsgInternalError)
 	}
 
 	s.log.Info("list request handled successfully")
-	return &linkerV1.ListResponse{Links: links, Aliases: aliases}, nil
+	return &linkerV2.ListLinksResponse{Links: links, Aliases: aliases}, nil
 }
 
-func (s *serverAPI) Delete(ctx context.Context, req *linkerV1.DeleteRequest) (*linkerV1.DeleteResponse, error) {
+func (s *serverAPI) DeleteLink(ctx context.Context, req *linkerV2.DeleteLinkRequest) (*linkerV2.DeleteLinkResponse, error) {
 	username := req.GetUsername()
+	topic := req.GetTopic()
 	alias := req.GetAlias()
 
 	s.log.Info("try to handle delete request", slog.String("username", username), slog.String("alias", alias))
@@ -155,20 +306,30 @@ func (s *serverAPI) Delete(ctx context.Context, req *linkerV1.DeleteRequest) (*l
 		return nil, status.Error(codes.InvalidArgument, MsgInvalidUsername)
 	}
 
+	if topic == emptyTopic {
+		s.log.Info("request with empty topic")
+		return nil, status.Error(codes.InvalidArgument, MsgEmptyTopic)
+	}
+
 	if alias == emptyAlias {
 		s.log.Info("request with empty alias")
 		return nil, status.Error(codes.InvalidArgument, MsgEmptyAlias)
 	}
 
-	if err := s.linkerService.Delete(ctx, username, alias); err != nil {
-		if errors.Is(err, storage.ErrRecordNotFound) {
-			s.log.Info("record not found", slog.String("alias", alias))
-			return nil, status.Error(codes.InvalidArgument, MsgRecordNotFound)
-		} else if errors.Is(err, storage.ErrAliasNotFound) {
+	if err := s.linkerService.DeleteLink(ctx, username, topic, alias); err != nil {
+		if errors.Is(err, storage.ErrUserNotFound) {
+			s.log.Info("user not found", slog.String("user", username))
+			return nil, status.Error(codes.InvalidArgument, MsgUserNotFound)
+		}
+
+		if errors.Is(err, storage.ErrTopicNotFound) {
+			s.log.Info("topic not found", slog.String("user", username), slog.String("topic", topic))
+			return nil, status.Error(codes.InvalidArgument, MsgTopicNotFound)
+		}
+
+		if errors.Is(err, storage.ErrAliasNotFound) {
 			s.log.Info("alias not found", slog.String("alias", alias))
 			return nil, status.Error(codes.InvalidArgument, MsgAliasNotFound)
-		} else if errors.Is(err, storage.ErrUserNotFound) {
-			return nil, status.Error(codes.InvalidArgument, MsgUserNotFound)
 		}
 
 		s.log.Error("filed to handle delete request", slog.String("err", err.Error()))
@@ -182,7 +343,7 @@ func (s *serverAPI) Delete(ctx context.Context, req *linkerV1.DeleteRequest) (*l
 	}
 
 	s.log.Info("delete request handled successfully", slog.String("alias", alias))
-	return &linkerV1.DeleteResponse{Alias: alias}, nil
+	return &linkerV2.DeleteLinkResponse{Alias: alias}, nil
 }
 
 func getAlias(link string) string {

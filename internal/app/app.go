@@ -11,9 +11,17 @@ type App struct {
 	grpcSrv *grpcApp.App
 }
 
-func New(log *slog.Logger, port int, linkerService server.Service, urlShortener urlShortener.UrlShortener) *App {
+func New(log *slog.Logger, port int, linkerService server.LinkService, topicService server.TopicService, urlShortener urlShortener.UrlShortener) *App {
 
-	return &App{grpcSrv: grpcApp.New(log, port, linkerService, urlShortener)}
+	return &App{
+		grpcSrv: grpcApp.New(
+			log,
+			port,
+			linkerService,
+			topicService,
+			urlShortener,
+		),
+	}
 }
 
 func (a *App) MustRun() {

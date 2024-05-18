@@ -15,10 +15,10 @@ type App struct {
 	port   int
 }
 
-func New(log *slog.Logger, port int, linkerService server.Service, urlShortener urlShortener.UrlShortener) *App {
+func New(log *slog.Logger, port int, linkerService server.LinkService, topicService server.TopicService, urlShortener urlShortener.UrlShortener) *App {
 	grpcServer := grpc.NewServer()
 
-	server.Register(grpcServer, linkerService, log, urlShortener)
+	server.Register(grpcServer, log, linkerService, topicService, urlShortener)
 
 	return &App{
 		log:    log,

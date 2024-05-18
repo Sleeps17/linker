@@ -1,92 +1,95 @@
 package tests
 
 import (
-	linkerV1 "github.com/Sleeps17/linker-protos/gen/go/linker/v1"
+	linkerV2 "github.com/Sleeps17/linker-protos/gen/go/linker"
 	"github.com/Sleeps17/linker/pkg/random"
 	"github.com/Sleeps17/linker/tests/suite"
 	"github.com/brianvoe/gofakeit"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"math/rand"
 	"slices"
 	"testing"
 )
 
-func TestLinkerPost(t *testing.T) {
+func TestLinkerPostAndDeleteTopic(t *testing.T) {
 	ctx, st := suite.New(t)
 
 	tests := []struct {
-		name        string
-		username    string
-		link        string
-		alias       string
-		expectedErr bool
+		name      string
+		username  string
+		topic     string
+		expectErr bool
 	}{
 		{
-			name:        "normal case 1",
-			username:    generateUsername(),
-			link:        gofakeit.URL(),
-			alias:       gofakeit.Word(),
-			expectedErr: false,
-		},
-		{
-			name:        "normal case 2",
-			username:    generateUsername(),
-			link:        gofakeit.URL(),
-			alias:       gofakeit.Word(),
-			expectedErr: false,
-		},
-		{
-			name:        "with empty alias",
-			username:    generateUsername(),
-			link:        gofakeit.URL(),
-			alias:       "",
-			expectedErr: false,
-		},
-		{
-			name:        "with empty username",
-			username:    "",
-			link:        gofakeit.URL(),
-			alias:       gofakeit.Word(),
-			expectedErr: true,
-		},
-		{
-			name:        "with username less then 8 characters",
-			username:    generateUsername()[0:5],
-			link:        gofakeit.URL(),
-			alias:       gofakeit.Word(),
-			expectedErr: true,
-		},
-		{
-			name:        "with empty link",
-			username:    generateUsername(),
-			link:        "",
-			alias:       gofakeit.Word(),
-			expectedErr: true,
-		},
-		{
-			name:        "with invalid link",
-			username:    generateUsername(),
-			link:        "invalid",
-			alias:       gofakeit.Word(),
-			expectedErr: true,
+			name:      "Simple test 1",
+			username:  generateUsername(),
+			topic:     gofakeit.Word(),
+			expectErr: false,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			resp, err := st.LinkerClient.Post(ctx, &linkerV1.PostRequest{
+			resp, err := st.LinkerClient.PostTopic(ctx, &linkerV2.PostTopicRequest{
 				Username: tt.username,
+				Topic:    tt.topic,
+			})
+
+			require.Equal(t, tt.expectErr, err != nil)
+
+			assert.NotEmpty(t, resp.GetTopicId())
+
+			insertedId := resp.GetTopicId()
+
+			_, err = st.LinkerClient.DeleteTopic(ctx, &linkerV2.DeleteTopicRequest{
+				Username: tt.username,
+				Topic:    tt.topic,
+			})
+
+			require.NoError(t, err)
+			assert.Equal(t, insertedId, resp.GetTopicId())
+		})
+	}
+}
+
+func TestLinkerPostAndDeleteLink(t *testing.T) {
+	ctx, st := suite.New(t)
+
+	tests := []struct {
+		name      string
+		username  string
+		topic     string
+		link      string
+		alias     string
+		expectErr bool
+	}{
+		{
+			name:      "Simple test 1",
+			username:  generateUsername(),
+			topic:     gofakeit.Word(),
+			link:      gofakeit.URL(),
+			alias:     gofakeit.Word(),
+			expectErr: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := st.LinkerClient.PostTopic(ctx, &linkerV2.PostTopicRequest{
+				Username: tt.username,
+				Topic:    tt.topic,
+			})
+
+			require.NoError(t, err)
+
+			resp, err := st.LinkerClient.PostLink(ctx, &linkerV2.PostLinkRequest{
+				Username: tt.username,
+				Topic:    tt.topic,
 				Link:     tt.link,
 				Alias:    tt.alias,
 			})
 
-			if !tt.expectedErr {
-				assert.NoError(t, err)
-			} else {
-				assert.Error(t, err)
-				return
-			}
+			require.Equal(t, tt.expectErr, err != nil)
 
 			if tt.alias != "" {
 				assert.Equal(t, tt.alias, resp.Alias)
@@ -94,306 +97,80 @@ func TestLinkerPost(t *testing.T) {
 				assert.NotEmpty(t, resp.GetAlias())
 			}
 
-			_, err = st.LinkerClient.Delete(ctx, &linkerV1.DeleteRequest{
+			_, err = st.LinkerClient.DeleteLink(ctx, &linkerV2.DeleteLinkRequest{
+				Username: tt.username,
+				Topic:    tt.topic,
 				Alias:    resp.GetAlias(),
-				Username: tt.username,
 			})
 
-			assert.NoError(t, err)
+			require.NoError(t, err)
 		})
 	}
 }
 
-func TestLinkerPick(t *testing.T) {
+func TestLinkerPickLink(t *testing.T) {
 	ctx, st := suite.New(t)
 
 	tests := []struct {
-		name        string
-		username    string
-		link        string
-		alias       string
-		changeAlias bool
-		expectedErr bool
+		name      string
+		username  string
+		topic     string
+		link      string
+		alias     string
+		expectErr bool
 	}{
 		{
-			name:        "normal case 1",
-			username:    generateUsername(),
-			link:        gofakeit.URL(),
-			alias:       gofakeit.Word(),
-			changeAlias: false,
-			expectedErr: false,
-		},
-		{
-			name:        "normal case 2",
-			username:    generateUsername(),
-			link:        gofakeit.URL(),
-			alias:       gofakeit.Word(),
-			changeAlias: false,
-			expectedErr: false,
-		},
-		{
-			name:        "with empty alias",
-			username:    generateUsername(),
-			link:        gofakeit.URL(),
-			alias:       "",
-			changeAlias: false,
-			expectedErr: true,
-		},
-		{
-			name:        "with empty username",
-			username:    "",
-			link:        gofakeit.URL(),
-			alias:       gofakeit.Word(),
-			changeAlias: false,
-			expectedErr: true,
-		},
-		{
-			name:        "with invalid username",
-			username:    generateUsername()[0:5],
-			link:        gofakeit.URL(),
-			alias:       gofakeit.Word(),
-			changeAlias: false,
-			expectedErr: true,
-		},
-		{
-			name:        "with undefined alias",
-			username:    generateUsername(),
-			link:        gofakeit.URL(),
-			alias:       "",
-			changeAlias: true,
-			expectedErr: true,
+			name:      "Simple test 1",
+			username:  generateUsername(),
+			topic:     gofakeit.Word(),
+			link:      gofakeit.URL(),
+			alias:     gofakeit.Word(),
+			expectErr: false,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 
-			_, _ = st.LinkerClient.Post(ctx, &linkerV1.PostRequest{
+			_, err := st.LinkerClient.PostTopic(ctx, &linkerV2.PostTopicRequest{
 				Username: tt.username,
-				Link:     tt.link,
-				Alias:    tt.alias,
+				Topic:    tt.topic,
 			})
 
-			if tt.changeAlias {
-				tt.alias = "some undefined alias"
-			}
+			require.NoError(t, err)
 
-			resp, err := st.LinkerClient.Pick(ctx, &linkerV1.PickRequest{
+			_, err = st.LinkerClient.PostLink(ctx, &linkerV2.PostLinkRequest{
 				Username: tt.username,
-				Alias:    tt.alias,
-			})
-
-			if !tt.expectedErr {
-				require.NoError(t, err)
-				assert.Equal(t, tt.link, resp.Link)
-
-				_, err = st.LinkerClient.Delete(ctx, &linkerV1.DeleteRequest{
-					Username: tt.username,
-					Alias:    tt.alias,
-				})
-
-				assert.NoError(t, err)
-			} else {
-				require.Error(t, err)
-				return
-			}
-		})
-	}
-}
-
-func TestLinkerList(t *testing.T) {
-	ctx, st := suite.New(t)
-
-	tests := []struct {
-		name        string
-		username    string
-		links       []string
-		aliases     []string
-		expectedErr bool
-	}{
-		{
-			name:        "normal case 1",
-			username:    random.Alias(rand.Int()%10 + 10),
-			links:       generateLinks(8),
-			aliases:     generateAliases(8),
-			expectedErr: false,
-		},
-		{
-			name:        "normal case 2",
-			username:    random.Alias(rand.Int()%10 + 10),
-			links:       generateLinks(8),
-			aliases:     generateAliases(8),
-			expectedErr: false,
-		},
-		{
-			name:        "normal case 3",
-			username:    random.Alias(rand.Int()%10 + 10),
-			links:       generateLinks(8),
-			aliases:     generateAliases(8),
-			expectedErr: false,
-		},
-		{
-			name:        "with empty username",
-			username:    "",
-			expectedErr: true,
-		},
-		{
-			name:        "with invalid username",
-			username:    generateUsername()[0:5],
-			expectedErr: true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-
-			indexForDelete := make([]int, 0, len(tt.links))
-			for i := range tt.links {
-				_, err := st.LinkerClient.Post(ctx, &linkerV1.PostRequest{
-					Username: tt.username,
-					Link:     tt.links[i],
-					Alias:    tt.aliases[i],
-				})
-
-				if err != nil {
-					indexForDelete = append(indexForDelete, i)
-				}
-			}
-
-			cnt := 0
-			for _, elem := range indexForDelete {
-				tt.links = removeElement(tt.links, tt.links[elem-cnt])
-				tt.aliases = removeElement(tt.aliases, tt.aliases[elem-cnt])
-				cnt++
-			}
-
-			resp, err := st.LinkerClient.List(ctx, &linkerV1.ListRequest{
-				Username: tt.username,
-			})
-
-			if !tt.expectedErr {
-				require.NoError(t, err)
-			} else {
-				require.Error(t, err)
-				return
-			}
-
-			slices.Sort(tt.aliases)
-			slices.Sort(tt.links)
-			slices.Sort(resp.Aliases)
-			slices.Sort(resp.Links)
-
-			assert.Equal(t, tt.links, resp.Links)
-			assert.Equal(t, tt.aliases, resp.Aliases)
-
-			for i := range tt.links {
-				_, err := st.LinkerClient.Delete(ctx, &linkerV1.DeleteRequest{
-					Username: tt.username,
-					Alias:    tt.aliases[i],
-				})
-
-				assert.NoError(t, err)
-			}
-		})
-	}
-}
-
-func TestLinkerDelete(t *testing.T) {
-	ctx, st := suite.New(t)
-
-	tests := []struct {
-		name        string
-		username    string
-		link        string
-		alias       string
-		expectedErr bool
-	}{
-		{
-			name:     "normal case 1",
-			username: generateUsername(),
-			link:     gofakeit.URL(),
-			alias:    gofakeit.Word(),
-		},
-		{
-			name:     "normal case 1",
-			username: generateUsername(),
-			link:     gofakeit.URL(),
-			alias:    gofakeit.Word(),
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-
-			_, err := st.LinkerClient.Post(ctx, &linkerV1.PostRequest{
-				Username: tt.username,
+				Topic:    tt.topic,
 				Link:     tt.link,
 				Alias:    tt.alias,
 			})
 
 			require.NoError(t, err)
 
-			_, err = st.LinkerClient.Delete(ctx, &linkerV1.DeleteRequest{
+			resp, err := st.LinkerClient.PickLink(ctx, &linkerV2.PickLinkRequest{
 				Username: tt.username,
+				Topic:    tt.topic,
 				Alias:    tt.alias,
 			})
 
-			if !tt.expectedErr {
-				require.NoError(t, err)
-			} else {
+			if tt.expectErr {
 				require.Error(t, err)
 				return
 			}
+
+			require.NoError(t, err)
+			assert.Equal(t, tt.link, resp.Link)
+
+			_, err = st.LinkerClient.DeleteLink(ctx, &linkerV2.DeleteLinkRequest{
+				Username: tt.username,
+				Topic:    tt.topic,
+				Alias:    tt.alias,
+			})
+
+			require.NoError(t, err)
 		})
 	}
-}
-
-func TestLinkerPost_RecordAlreadyExists(t *testing.T) {
-	ctx, st := suite.New(t)
-
-	username := generateUsername()
-	link := gofakeit.URL()
-	alias := gofakeit.Word()
-
-	_, err := st.LinkerClient.Post(ctx, &linkerV1.PostRequest{
-		Username: username,
-		Link:     link,
-		Alias:    alias,
-	})
-
-	require.NoError(t, err)
-
-	link = gofakeit.URL()
-
-	_, err = st.LinkerClient.Post(ctx, &linkerV1.PostRequest{
-		Username: username,
-		Link:     link,
-		Alias:    alias,
-	})
-
-	require.Error(t, err)
-
-	_, err = st.LinkerClient.Delete(ctx, &linkerV1.DeleteRequest{
-		Username: username,
-		Alias:    alias,
-	})
-
-	require.NoError(t, err)
-}
-
-func TestLinkerPick_UnknownUsername(t *testing.T) {
-	ctx, st := suite.New(t)
-
-	username := generateUsername()
-	alias := "some random word"
-
-	resp, err := st.LinkerClient.Pick(ctx, &linkerV1.PickRequest{
-		Username: username,
-		Alias:    alias,
-	})
-
-	require.Error(t, err)
-	require.Nil(t, resp)
 }
 
 func generateLinks(length int) []string {

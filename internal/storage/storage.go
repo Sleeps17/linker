@@ -6,17 +6,26 @@ import (
 )
 
 type Storage interface {
-	Post(ctx context.Context, username, link, alias string) (err error)
-	Pick(ctx context.Context, username, alias string) (link string, err error)
-	List(ctx context.Context, username string) (links []string, aliases []string, err error)
-	Delete(ctx context.Context, username, alias string) error
+	PostTopic(ctx context.Context, username, topic string) (topicID uint32, err error)
+	DeleteTopic(ctx context.Context, username, topic string) (topicID uint32, err error)
+	ListTopics(ctx context.Context, username string) (topics []string, err error)
+
+	PostLink(ctx context.Context, username, topic, link, alias string) (err error)
+	PickLink(ctx context.Context, username, topic, alias string) (link string, err error)
+	DeleteLink(ctx context.Context, username, topic, alias string) (err error)
+	ListLinks(ctx context.Context, username, topic string) (links []string, aliases []string, err error)
+
 	Close(ctx context.Context) error
 }
 
 var (
-	ErrUserNotFound  = errors.New("username not found")
-	ErrAliasNotFound = errors.New("alias not found")
+	ErrTopicAlreadyExists = errors.New("topic already exists")
+	ErrTopicNotFound      = errors.New("topic not found")
 
-	ErrRecordNotFound     = errors.New("alias not found")
+	ErrUserNotFound = errors.New("username not found")
+
+	ErrAliasNotFound      = errors.New("alias not found")
 	ErrAliasAlreadyExists = errors.New("alias already exists")
+
+	ErrRecordNotFound = errors.New("alias not found")
 )

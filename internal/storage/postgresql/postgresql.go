@@ -11,10 +11,13 @@ import (
 )
 
 const (
-	emptyLink = ""
+	emptyLink   = ""
+	zeroTopicId = 0
+	zeroUserId  = 0
 )
 
 var (
+	emptyTopics  = []string{}
 	emptyLinks   = []string{}
 	emptyAliases = []string{}
 )
@@ -46,91 +49,198 @@ func (s *Storage) Close(ctx context.Context) error {
 	return s.db.Close()
 }
 
-func (s *Storage) addUser(ctx context.Context, username string) (int64, error) {
-	insertUserQuery := `INSERT INTO users (username) VALUES ($1) RETURNING id;`
+func (s *Storage) PostTopic(ctx context.Context, username, topic string) (uint32, error) {
+	const op = "postgresql.PostTopic"
 
-	var userID int64
-	err := s.db.QueryRowContext(ctx, insertUserQuery, username).Scan(&userID)
-	if err != nil {
-		return 0, err
-	}
-
-	return userID, nil
-}
-
-func (s *Storage) Post(ctx context.Context, username, link, alias string) error {
-	findUserQuery := `SELECT id FROM users WHERE username = $1;`
-
-	var userID int64
-	err := s.db.QueryRowContext(ctx, findUserQuery, username).Scan(&userID)
+	var userId uint32
+	userId, err := s.findUser(ctx, username)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			userID, err = s.addUser(ctx, username)
+			userId, err = s.insertUser(ctx, username)
+
 			if err != nil {
-				return fmt.Errorf("failed to add new user: %w", err)
+				return zeroTopicId, fmt.Errorf("%s: %w", op, err)
 			}
 		} else {
-			return fmt.Errorf("failed to find user: %w", err)
+			return zeroTopicId, fmt.Errorf("%s: %w", op, err)
 		}
 	}
 
-	insertionQuery := `INSERT INTO links (user_id, link, alias) VALUES ($1, $2, $3);`
-	_, err = s.db.ExecContext(ctx, insertionQuery, userID, link, alias)
+	var topicId uint32
+	err = s.db.QueryRowContext(ctx, insertTopicQuery, userId, topic).Scan(&topicId)
+	if err != nil {
+		if pqErr, ok := err.(*pq.Error); ok && pqErr.Code.Name() == "unique_violation" {
+			return 0, storage.ErrTopicAlreadyExists
+		}
+
+		return 0, fmt.Errorf("%s: %w", op, err)
+	}
+
+	return topicId, nil
+}
+
+func (s *Storage) DeleteTopic(ctx context.Context, username, topic string) (uint32, error) {
+	const op = "postgresql.DeleteTopic"
+
+	userId, err := s.findUser(ctx, username)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return zeroTopicId, storage.ErrUserNotFound
+		}
+
+		return zeroTopicId, fmt.Errorf("%s: %w", op, err)
+	}
+
+	topicId, err := s.findTopic(ctx, userId, topic)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return zeroTopicId, storage.ErrTopicNotFound
+		}
+
+		return zeroTopicId, fmt.Errorf("%s: %w", op, err)
+	}
+
+	_, err = s.db.ExecContext(ctx, deleteLinksByTopicQuery, userId, topicId)
+	if err != nil {
+		if !errors.Is(err, sql.ErrNoRows) {
+			return zeroTopicId, fmt.Errorf("%s: %w", op, err)
+		}
+	}
+
+	if err := s.db.QueryRowContext(ctx, deleteTopicQuery, userId, topic).Scan(&topicId); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return zeroTopicId, storage.ErrTopicNotFound
+		}
+
+		return zeroTopicId, fmt.Errorf("%s: %w", op, err)
+	}
+
+	return topicId, nil
+}
+
+func (s *Storage) ListTopics(ctx context.Context, username string) ([]string, error) {
+	const op = "postgresql.ListTopics"
+
+	userId, err := s.findUser(ctx, username)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return emptyTopics, storage.ErrUserNotFound
+		}
+
+		return emptyTopics, fmt.Errorf("%s: %w", op, err)
+	}
+
+	cursor, err := s.db.QueryContext(ctx, listTopicsQuery, userId)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return emptyTopics, nil
+		}
+		return emptyTopics, fmt.Errorf("%s: %w", op, err)
+	}
+
+	topics := make([]string, 0)
+
+	var topic string
+	for cursor.Next() {
+		if err := cursor.Scan(&topic); err != nil {
+			return emptyTopics, fmt.Errorf("%s: %w", op, err)
+		}
+
+		topics = append(topics, topic)
+	}
+
+	return topics, nil
+}
+
+func (s *Storage) PostLink(ctx context.Context, username, topic, link, alias string) error {
+	const op = "postgresql.PostLink"
+
+	userId, err := s.findUser(ctx, username)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return storage.ErrUserNotFound
+		}
+
+		return fmt.Errorf("%s: %w", op, err)
+	}
+
+	topicId, err := s.findTopic(ctx, userId, topic)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return storage.ErrTopicNotFound
+		}
+
+		return fmt.Errorf("%s: %w", op, err)
+	}
+
+	_, err = s.db.ExecContext(ctx, insertLinkQuery, userId, topicId, link, alias)
 	if err != nil {
 		if pqErr, ok := err.(*pq.Error); ok && pqErr.Code.Name() == "unique_violation" {
 			return storage.ErrAliasAlreadyExists
 		}
 
-		return fmt.Errorf("failed to insert link: %w", err)
+		return fmt.Errorf("%s: %w", op, err)
 	}
 
 	return nil
 }
 
-func (s *Storage) Pick(ctx context.Context, username, alias string) (string, error) {
-	queryFindUser := `SELECT id FROM users WHERE username = $1;`
+func (s *Storage) PickLink(ctx context.Context, username, topic, alias string) (string, error) {
+	const op = "postgresql.PickLink"
 
-	var userID int
-	err := s.db.QueryRowContext(ctx, queryFindUser, username).Scan(&userID)
+	userId, err := s.findUser(ctx, username)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return emptyLink, storage.ErrUserNotFound
 		}
 
-		return emptyLink, fmt.Errorf("failed to find user: %w", err)
+		return emptyLink, fmt.Errorf("%s: %w", op, err)
 	}
 
-	querySelectLink := `SELECT link FROM links WHERE user_id = $1 AND alias = $2;`
+	topicId, err := s.findTopic(ctx, userId, topic)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return emptyLink, storage.ErrTopicNotFound
+		}
+
+		return emptyLink, fmt.Errorf("%s: %w", op, err)
+	}
 
 	var link string
-	err = s.db.QueryRowContext(ctx, querySelectLink, userID, alias).Scan(&link)
+	err = s.db.QueryRowContext(ctx, selectLinkQuery, userId, topicId, alias).Scan(&link)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return emptyLink, storage.ErrAliasNotFound
 		}
 
-		return emptyLink, fmt.Errorf("failed to find link: %w", err)
+		return emptyLink, fmt.Errorf("%s: %w", op, err)
 	}
 
 	return link, nil
 }
 
-func (s *Storage) List(ctx context.Context, username string) ([]string, []string, error) {
-	queryFindUser := `SELECT id FROM users WHERE username = $1;`
+func (s *Storage) ListLinks(ctx context.Context, username, topic string) ([]string, []string, error) {
+	const op = "postgresql.ListLinks"
 
-	var userID int
-	err := s.db.QueryRowContext(ctx, queryFindUser, username).Scan(&userID)
+	userId, err := s.findUser(ctx, username)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return emptyLinks, emptyAliases, storage.ErrUserNotFound
 		}
 
-		return emptyLinks, emptyAliases, fmt.Errorf("failed to find user: %w", err)
+		return emptyLinks, emptyAliases, fmt.Errorf("%s: %w", op, err)
 	}
 
-	querySelectData := `SELECT link, alias FROM links WHERE user_id = $1;`
+	topicId, err := s.findTopic(ctx, userId, topic)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return emptyLinks, emptyAliases, storage.ErrTopicNotFound
+		}
 
-	cursor, err := s.db.QueryContext(ctx, querySelectData, userID)
+		return emptyLinks, emptyAliases, fmt.Errorf("%s: %w", op, err)
+	}
+
+	cursor, err := s.db.QueryContext(ctx, listLinksQuery, userId, topicId)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return emptyLinks, emptyAliases, nil
@@ -138,8 +248,8 @@ func (s *Storage) List(ctx context.Context, username string) ([]string, []string
 		return emptyLinks, emptyAliases, fmt.Errorf("failed to select data: %w", err)
 	}
 
-	links := make([]string, 0, 4)
-	aliases := make([]string, 0, 4)
+	links := make([]string, 0)
+	aliases := make([]string, 0)
 
 	var link, alias string
 	for cursor.Next() {
@@ -154,23 +264,33 @@ func (s *Storage) List(ctx context.Context, username string) ([]string, []string
 	return links, aliases, nil
 }
 
-func (s *Storage) Delete(ctx context.Context, username string, alias string) error {
-	queryFindUser := `SELECT id FROM users WHERE username = $1;`
+func (s *Storage) DeleteLink(ctx context.Context, username, topic, alias string) error {
+	const op = "postgresql.DeleteLink"
 
-	var userID int
-	err := s.db.QueryRowContext(ctx, queryFindUser, username).Scan(&userID)
+	userId, err := s.findUser(ctx, username)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return storage.ErrUserNotFound
 		}
 
-		return fmt.Errorf("failed to find user: %w", err)
+		return fmt.Errorf("%s: %w", op, err)
 	}
 
-	queryDeleteRecord := `DELETE FROM links WHERE user_id = $1 AND alias = $2;`
-	res, err := s.db.ExecContext(ctx, queryDeleteRecord, userID, alias)
+	topicId, err := s.findTopic(ctx, userId, topic)
 	if err != nil {
-		return fmt.Errorf("failed to delete record: %w", err)
+		if errors.Is(err, sql.ErrNoRows) {
+			return storage.ErrTopicNotFound
+		}
+
+		return fmt.Errorf("%s: %w", op, err)
+	}
+
+	res, err := s.db.ExecContext(ctx, deleteLinkQuery, userId, topicId, alias)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return storage.ErrAliasNotFound
+		}
+		return fmt.Errorf("%s: %w", op, err)
 	}
 
 	affectedRowsCount, _ := res.RowsAffected()
@@ -182,26 +302,54 @@ func (s *Storage) Delete(ctx context.Context, username string, alias string) err
 }
 
 func (s *Storage) init(ctx context.Context) error {
-	query := `CREATE TABLE IF NOT EXISTS "users" ("id" SERIAL PRIMARY KEY, "username" TEXT UNIQUE NOT NULL);`
-
-	_, err := s.db.ExecContext(ctx, query)
+	_, err := s.db.ExecContext(ctx, createUsersTableQuery)
 	if err != nil {
-		return fmt.Errorf("failed to create USERS table %w", err)
+		return fmt.Errorf("failed to create USERS table: %w", err)
 	}
 
-	query = `CREATE TABLE IF NOT EXISTS "links" (
-    "id" SERIAL PRIMARY KEY,
-    "user_id" INT NOT NULL,
-    "link" TEXT NOT NULL,
-    "alias" TEXT NOT NULL,
-    FOREIGN KEY (user_id) REFERENCES users(id),
-    UNIQUE (user_id, alias)
-);`
-
-	_, err = s.db.ExecContext(ctx, query)
+	_, err = s.db.ExecContext(ctx, createTopicsTableQuery)
 	if err != nil {
-		return fmt.Errorf("failed to create LINKS table %w", err)
+		return fmt.Errorf("failed to create TOPICS table: %w", err)
+	}
+
+	_, err = s.db.ExecContext(ctx, createLinksTableQuery)
+	if err != nil {
+		return fmt.Errorf("failed to create LINKS table: %w", err)
 	}
 
 	return nil
+}
+
+func (s *Storage) insertUser(ctx context.Context, username string) (uint32, error) {
+	const op = "postgresql.AddUser"
+
+	var userId uint32
+	err := s.db.QueryRowContext(ctx, insertUserQuery, username).Scan(&userId)
+	if err != nil {
+		return zeroUserId, fmt.Errorf("%s: %w", op, err)
+	}
+
+	return userId, nil
+}
+
+func (s *Storage) findUser(ctx context.Context, username string) (uint32, error) {
+	const op = "postgresql.FindUser"
+
+	var userId uint32
+	if err := s.db.QueryRowContext(ctx, selectUserQuery, username).Scan(&userId); err != nil {
+		return zeroUserId, fmt.Errorf("%s: %w", op, err)
+	}
+
+	return userId, nil
+}
+
+func (s *Storage) findTopic(ctx context.Context, userId uint32, topic string) (uint32, error) {
+	const op = "postgresql.FindTopic"
+
+	var topicId uint32
+	if err := s.db.QueryRowContext(ctx, selectTopicQuery, userId, topic).Scan(&topicId); err != nil {
+		return zeroTopicId, fmt.Errorf("%s: %w", op, err)
+	}
+
+	return topicId, nil
 }

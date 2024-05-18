@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	linkerV1 "github.com/Sleeps17/linker-protos/gen/go/linker/v1"
+	linkerV1 "github.com/Sleeps17/linker-protos/gen/go/linker"
 	"github.com/Sleeps17/linker/internal/app"
 	mockUrlShortener "github.com/Sleeps17/linker/internal/clients/url-shortener/mock"
 	"github.com/Sleeps17/linker/internal/config"
@@ -43,7 +43,7 @@ func New(t *testing.T) (context.Context, *Suite) {
 	mockedShortener.EXPECT().SaveURL(gomock.Any(), gomock.Any(), gomock.Any()).Return("", errors.New("some err")).AnyTimes()
 	mockedShortener.EXPECT().DeleteURL(gomock.Any(), gomock.Any()).Return(errors.New("some err")).AnyTimes()
 
-	application := app.New(log, int(cfg.Server.Port), storage, mockedShortener)
+	application := app.New(log, int(cfg.Server.Port), storage, storage, mockedShortener)
 	log.Info("application configured successfully")
 
 	// TODO: Start server
