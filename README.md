@@ -1,3 +1,5 @@
+[![Publish my app to DockerHub](https://github.com/Sleeps17/linker/actions/workflows/publish.yml/badge.svg?branch=main)](https://github.com/Sleeps17/linker/actions/workflows/publish.yml)
+
 # linker
 ## Пояснение
 Обычно у программиста есть огромное количество задач, по которым у него открыто огромное количество вкладок в браузере. Это очень сильно захламляет рабочее пространство. Для очистки рабоче
