@@ -36,11 +36,11 @@ func main() {
 	)
 
 	// TODO: Init server
-	application := app.New(log, int(cfg.Server.Port), storage, storage, urlShortener)
+	application := app.New(log, cfg, storage, urlShortener)
 	log.Info("application configured successfully")
 
 	// TODO: Start server
-	go application.MustRun()
+	application.MustStart()
 	log.Info("application started successfully")
 
 	stop := make(chan os.Signal, 1)

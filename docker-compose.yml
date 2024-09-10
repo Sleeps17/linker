@@ -21,7 +21,7 @@ services:
         container_name: linker-service
         restart: always
         ports:
-            - "4404:4404"
+            - "8080:8080"
         networks:
             - proxynet
         depends_on:

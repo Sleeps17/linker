@@ -1,33 +1,62 @@
 package app
 
 import (
-	grpcApp "github.com/Sleeps17/linker/internal/app/grpc"
+	botapp "github.com/Sleeps17/linker/internal/app/bot"
+	httpapp "github.com/Sleeps17/linker/internal/app/http"
 	urlShortener "github.com/Sleeps17/linker/internal/clients/url-shortener"
-	server "github.com/Sleeps17/linker/internal/grpc/linker"
+	"github.com/Sleeps17/linker/internal/config"
+	"github.com/Sleeps17/linker/internal/storage"
 	"log/slog"
 )
 
-type App struct {
-	grpcSrv *grpcApp.App
+type app interface {
+	MustRun()
+	Stop()
 }
 
-func New(log *slog.Logger, port int, linkerService server.LinkService, topicService server.TopicService, urlShortener urlShortener.UrlShortener) *App {
+type Service struct {
+	apps []app
+}
 
-	return &App{
-		grpcSrv: grpcApp.New(
+func New(
+	log *slog.Logger,
+	cfg *config.Config,
+	storage storage.Storage,
+	_ urlShortener.UrlShortener,
+) *Service {
+	var apps []app
+
+	apps = append(
+		apps,
+		httpapp.New(
+			&cfg.Rest,
 			log,
-			port,
-			linkerService,
-			topicService,
-			urlShortener,
+			storage,
 		),
+	)
+
+	apps = append(
+		apps,
+		botapp.MustNew(
+			&cfg.Bot,
+			log,
+			storage,
+		),
+	)
+
+	return &Service{
+		apps: apps,
 	}
 }
 
-func (a *App) MustRun() {
-	a.grpcSrv.MustRun()
+func (s *Service) MustStart() {
+	for _, a := range s.apps {
+		go a.MustRun()
+	}
 }
 
-func (a *App) Stop() {
-	a.grpcSrv.Stop()
+func (s *Service) Stop() {
+	for _, a := range s.apps {
+		a.Stop()
+	}
 }

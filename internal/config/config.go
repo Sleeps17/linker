@@ -13,14 +13,22 @@ const (
 
 type Config struct {
 	Env                string                   `yaml:"env" env-default:"local"`
-	Server             ServerConfig             `yaml:"server"`
+	Rest               ServerConfig             `yaml:"rest"`
+	Grpc               ServerConfig             `yaml:"grpc"`
+	Bot                BotConfig                `yaml:"bot"`
 	DataBase           PostgresDBConfig         `yaml:"data_base"`
 	UrlShortenerClient UrlShortenerClientConfig `yaml:"url_shortener_client"`
 }
 
 type ServerConfig struct {
-	Port    uint          `yaml:"port" env-default:"4404"`
+	Port    string        `yaml:"port" env-default:":8080"`
 	Timeout time.Duration `yaml:"timeout" env-default:"5s"`
+}
+
+type BotConfig struct {
+	Token          string        `yaml:"token"`
+	UpdateTimeout  time.Duration `yaml:"update_timeout"`
+	RequestTimeout time.Duration `yaml:"request_timeout"`
 }
 
 type MongoDBConfig struct {

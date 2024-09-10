@@ -1,4 +1,4 @@
-package grpcApp
+package grpcapp
 
 import (
 	"fmt"
@@ -15,7 +15,13 @@ type App struct {
 	port   int
 }
 
-func New(log *slog.Logger, port int, linkerService server.LinkService, topicService server.TopicService, urlShortener urlShortener.UrlShortener) *App {
+func New(
+	log *slog.Logger,
+	port int,
+	linkerService server.LinkService,
+	topicService server.TopicService,
+	urlShortener urlShortener.UrlShortener,
+) *App {
 	grpcServer := grpc.NewServer()
 
 	server.Register(grpcServer, log, linkerService, topicService, urlShortener)
@@ -27,17 +33,17 @@ func New(log *slog.Logger, port int, linkerService server.LinkService, topicServ
 	}
 }
 
-func (app *App) MustRun() {
-	l, err := net.Listen("tcp", fmt.Sprintf(":%d", app.port))
+func (a *App) MustRun() {
+	l, err := net.Listen("tcp", fmt.Sprintf(":%d", a.port))
 	if err != nil {
 		panic(fmt.Sprintf("Failed to listen: %v", err))
 	}
 
-	if err := app.server.Serve(l); err != nil {
+	if err := a.server.Serve(l); err != nil {
 		panic(fmt.Sprintf("Failed to serve: %v", err))
 	}
 }
 
-func (app *App) Stop() {
-	app.server.GracefulStop()
+func (a *App) Stop() {
+	a.server.GracefulStop()
 }

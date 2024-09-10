@@ -1,19 +1,21 @@
 env: "local"
-server:
-    port: 4404
+rest:
+    port: ":8080"
     timeout: 10s
+grpc:
+  port: ":4404"
+  timeout: 10s
+bot:
+  token: "7399117684:AAFZyMnDDg8IDafP6A-vKSIQf0vJOu9psOA"
+  update_timeout: 10s
+  request_timeout: 10s
 data_base:
-  host: "linker-postgres"
-  port: "5432"
-  name: "linker-db"
-  username: "sleeps17"
-  password: "Pavel19122004"
+  host: "{{LinkerDBHost}}"
+  port: "{{LinkerDBPort}}"
+  name: "{{LinkerDBName}}"
+  username: "{{LinkerDBUsername}}"
+  password: "{{LinkerDBPassword}}"
   timeout: 10s
 url_shortener_client:
   host: "url-shortener-service"
   port: "8081"
-
-#data_base:
-#  conn_string: "mongodb://mongodb:27017"
-#  db_name: "linker-db"
-#  collection_name: "links-collection"

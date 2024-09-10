@@ -23,6 +23,6 @@ COPY config/config.yaml /config/config.yaml
 
 ENV CONFIG_PATH=/config/config.yaml
 
-EXPOSE 4404
+EXPOSE 8080
 
 CMD ["./linker"]
