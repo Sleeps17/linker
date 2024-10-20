@@ -3,6 +3,7 @@ package config
 import (
 	"fmt"
 	"github.com/ilyakaznacheev/cleanenv"
+	"fmt"
 	"os"
 	"time"
 )
@@ -66,6 +67,8 @@ func MustLoad() *Config {
 	if err := cleanenv.ReadConfig(configPath, &cfg); err != nil {
 		panic(fmt.Sprintf("Failed parse config: %v", err))
 	}
+
+	fmt.Println(cfg)
 
 	return &cfg
 }
